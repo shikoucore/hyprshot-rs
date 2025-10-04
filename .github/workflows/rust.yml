@@ -53,4 +53,4 @@ jobs:
         files: hyprshot-rs-${{ steps.get_version.outputs.VERSION }}-x86_64.tar.gz
         generate_release_notes: true
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.HYPRSHOT_TOKEN }}
