@@ -1,8 +1,8 @@
-use anyhow::{Context, Result};
+use anyhow::{ Context, Result };
 use notify_rust::Notification;
 use std::fs::create_dir_all;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{ Command, Stdio };
 
 #[cfg(feature = "grim")]
 pub fn save_geometry_with_grim(
@@ -13,48 +13,56 @@ pub fn save_geometry_with_grim(
     command: Option<Vec<String>>,
     silent: bool,
     notif_timeout: u32,
-    debug: bool,
+    debug: bool
 ) -> Result<()> {
     use std::io::Write;
 
     if debug {
-        eprintln!("Saving geometry with grim: {}", geometry);
+        eprintln!("Saving geometry with grim-rs library: {}", geometry);
     }
 
+    let region: grim_rs::Box = geometry
+        .parse()
+        .context(format!("Failed to parse geometry '{}' into grim-rs::Box", geometry))?;
+
+    let mut grim = grim_rs::Grim::new().context("Failed to initialize grim-rs")?;
+
+    let capture_result = grim
+        .capture_region(region)
+        .context("Failed to capture screenshot region")?;
+
     if raw {
-        let output = Command::new("grim")
-            .arg("-g")
-            .arg(geometry)
-            .arg("-")
-            .output()
-            .context("Failed to run grim")?;
-        if !output.status.success() {
-            return Err(anyhow::anyhow!("grim failed to capture screenshot"));
-        }
-        std::io::stdout().write_all(&output.stdout)?;
+        let png_bytes = grim
+            .to_png(&capture_result.data, capture_result.width, capture_result.height)
+            .context("Failed to encode screenshot as PNG")?;
+        std::io::stdout().write_all(&png_bytes)?;
         return Ok(());
     }
 
     if !clipboard_only {
-        create_dir_all(save_fullpath.parent().unwrap())
-            .context("Failed to create screenshot directory")?;
-        let grim_status = Command::new("grim")
-            .arg("-g")
-            .arg(geometry)
-            .arg(save_fullpath)
-            .status()
-            .context("Failed to run grim")?;
-        if !grim_status.success() {
-            return Err(anyhow::anyhow!("grim failed to capture screenshot"));
-        }
+        create_dir_all(save_fullpath.parent().unwrap()).context(
+            "Failed to create screenshot directory"
+        )?;
+
+        grim
+            .save_png(
+                &capture_result.data,
+                capture_result.width,
+                capture_result.height,
+                save_fullpath
+            )
+            .context(format!("Failed to save screenshot to '{}'", save_fullpath.display()))?;
 
         let wl_copy_status = Command::new("wl-copy")
             .arg("--type")
             .arg("image/png")
-            .stdin(std::fs::File::open(save_fullpath).context(format!(
-                "Failed to open screenshot file '{}'",
-                save_fullpath.display()
-            ))?)
+            .stdin(
+                std::fs::File
+                    ::open(save_fullpath)
+                    .context(
+                        format!("Failed to open screenshot file '{}'", save_fullpath.display())
+                    )?
+            )
             .status()
             .context("Failed to run wl-copy")?;
         if !wl_copy_status.success() {
@@ -72,15 +80,9 @@ pub fn save_geometry_with_grim(
             }
         }
     } else {
-        let grim_output = Command::new("grim")
-            .arg("-g")
-            .arg(geometry)
-            .arg("-")
-            .output()
-            .context("Failed to run grim")?;
-        if !grim_output.status.success() {
-            return Err(anyhow::anyhow!("grim failed to capture screenshot"));
-        }
+        let png_bytes = grim
+            .to_png(&capture_result.data, capture_result.width, capture_result.height)
+            .context("Failed to encode screenshot as PNG")?;
 
         let mut wl_copy = Command::new("wl-copy")
             .arg("--type")
@@ -88,11 +90,10 @@ pub fn save_geometry_with_grim(
             .stdin(Stdio::piped())
             .spawn()
             .context("Failed to start wl-copy")?;
-        wl_copy
-            .stdin
+        wl_copy.stdin
             .as_mut()
             .unwrap()
-            .write_all(&grim_output.stdout)
+            .write_all(&png_bytes)
             .context("Failed to write to wl-copy stdin")?;
         let wl_copy_status = wl_copy.wait().context("Failed to wait for wl-copy")?;
         if !wl_copy_status.success() {
@@ -131,12 +132,14 @@ pub fn save_geometry_with_native(
     command: Option<Vec<String>>,
     silent: bool,
     notif_timeout: u32,
-    debug: bool,
+    debug: bool
 ) -> Result<()> {
-    use image::{DynamicImage, ImageBuffer, Rgba};
+    use image::{ DynamicImage, ImageBuffer, Rgba };
     use wayland_client::{
-        Connection, Dispatch, QueueHandle,
-        protocol::{wl_compositor::WlCompositor, wl_output::WlOutput, wl_shm::WlShm},
+        Connection,
+        Dispatch,
+        QueueHandle,
+        protocol::{ wl_compositor::WlCompositor, wl_output::WlOutput, wl_shm::WlShm },
     };
     use wayland_protocols::unstable::screencopy::v1::client::{
         zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
@@ -163,9 +166,7 @@ pub fn save_geometry_with_native(
     let qh = event_queue.handle();
 
     let display = conn.display();
-    let globals = conn
-        .get_registry(&qh, ())
-        .context("Failed to get Wayland registry")?;
+    let globals = conn.get_registry(&qh, ()).context("Failed to get Wayland registry")?;
 
     struct State {
         compositor: Option<WlCompositor>,
@@ -181,30 +182,31 @@ pub fn save_geometry_with_native(
             event: wayland_client::protocol::wl_registry::Event,
             _: &(),
             _: &Connection,
-            qh: &QueueHandle<Self>,
+            qh: &QueueHandle<Self>
         ) {
-            if let wayland_client::protocol::wl_registry::Event::Global {
-                name,
-                interface,
-                version,
-            } = event
+            if
+                let wayland_client::protocol::wl_registry::Event::Global {
+                    name,
+                    interface,
+                    version,
+                } = event
             {
                 match interface.as_str() {
                     "wl_compositor" => {
-                        self.compositor =
-                            Some(registry.bind::<WlCompositor, _, _>(name, version, qh, ()));
+                        self.compositor = Some(
+                            registry.bind::<WlCompositor, _, _>(name, version, qh, ())
+                        );
                     }
                     "wl_shm" => {
                         self.shm = Some(registry.bind::<WlShm, _, _>(name, version, qh, ()));
                     }
                     "zwlr_screencopy_manager_v1" => {
                         self.screencopy_manager = Some(
-                            registry.bind::<ZwlrScreencopyManagerV1, _, _>(name, version, qh, ()),
+                            registry.bind::<ZwlrScreencopyManagerV1, _, _>(name, version, qh, ())
                         );
                     }
                     "wl_output" => {
-                        self.outputs
-                            .push(registry.bind::<WlOutput, _, _>(name, version, qh, ()));
+                        self.outputs.push(registry.bind::<WlOutput, _, _>(name, version, qh, ()));
                     }
                     _ => {}
                 }
@@ -219,13 +221,11 @@ pub fn save_geometry_with_native(
         outputs: vec![],
     };
 
-    event_queue
-        .roundtrip(&mut state)
-        .context("Failed to initialize Wayland globals")?;
+    event_queue.roundtrip(&mut state).context("Failed to initialize Wayland globals")?;
 
-    let screencopy_manager = state
-        .screencopy_manager
-        .context("wlr-screencopy-unstable-v1 not available")?;
+    let screencopy_manager = state.screencopy_manager.context(
+        "wlr-screencopy-unstable-v1 not available"
+    )?;
     let output = state.outputs.get(0).context("No outputs found")?;
 
     let frame = screencopy_manager.capture_output_region(0, output, x, y, width, height, &qh, ());
@@ -244,15 +244,10 @@ pub fn save_geometry_with_native(
             event: wayland_protocols::unstable::screencopy::v1::client::zwlr_screencopy_frame_v1::Event,
             _: &(),
             _: &Connection,
-            _: &QueueHandle<Self>,
+            _: &QueueHandle<Self>
         ) {
             match event {
-                zwlr_screencopy_frame_v1::Event::Buffer {
-                    format,
-                    width,
-                    height,
-                    stride,
-                } => {
+                zwlr_screencopy_frame_v1::Event::Buffer { format, width, height, stride } => {
                     self.width = width;
                     self.height = height;
                     self.format = Some(format);
@@ -273,18 +268,15 @@ pub fn save_geometry_with_native(
         format: None,
     };
 
-    event_queue
-        .roundtrip(&mut frame_state)
-        .context("Failed to capture frame")?;
+    event_queue.roundtrip(&mut frame_state).context("Failed to capture frame")?;
 
-    let buffer = frame_state
-        .buffer
-        .context("Failed to receive frame buffer")?;
+    let buffer = frame_state.buffer.context("Failed to receive frame buffer")?;
     let width = frame_state.width;
     let height = frame_state.height;
 
-    let img: ImageBuffer<Rgba<u8>, _> = ImageBuffer::from_raw(width, height, buffer)
-        .context("Failed to create image from buffer")?;
+    let img: ImageBuffer<Rgba<u8>, _> = ImageBuffer::from_raw(width, height, buffer).context(
+        "Failed to create image from buffer"
+    )?;
     let dynamic_img = DynamicImage::ImageRgba8(img);
 
     if raw {
@@ -296,20 +288,23 @@ pub fn save_geometry_with_native(
     }
 
     if !clipboard_only {
-        create_dir_all(save_fullpath.parent().unwrap())
-            .context("Failed to create screenshot directory")?;
-        dynamic_img.save(save_fullpath).context(format!(
-            "Failed to save screenshot to '{}'",
-            save_fullpath.display()
-        ))?;
+        create_dir_all(save_fullpath.parent().unwrap()).context(
+            "Failed to create screenshot directory"
+        )?;
+        dynamic_img
+            .save(save_fullpath)
+            .context(format!("Failed to save screenshot to '{}'", save_fullpath.display()))?;
 
         let wl_copy_status = Command::new("wl-copy")
             .arg("--type")
             .arg("image/png")
-            .stdin(std::fs::File::open(save_fullpath).context(format!(
-                "Failed to open screenshot file '{}'",
-                save_fullpath.display()
-            ))?)
+            .stdin(
+                std::fs::File
+                    ::open(save_fullpath)
+                    .context(
+                        format!("Failed to open screenshot file '{}'", save_fullpath.display())
+                    )?
+            )
             .status()
             .context("Failed to run wl-copy")?;
         if !wl_copy_status.success() {
@@ -329,10 +324,7 @@ pub fn save_geometry_with_native(
     } else {
         let mut buffer = Vec::new();
         dynamic_img
-            .write_to(
-                &mut std::io::Cursor::new(&mut buffer),
-                image::ImageOutputFormat::Png,
-            )
+            .write_to(&mut std::io::Cursor::new(&mut buffer), image::ImageOutputFormat::Png)
             .context("Failed to encode image to PNG")?;
 
         let mut wl_copy = Command::new("wl-copy")
@@ -341,8 +333,7 @@ pub fn save_geometry_with_native(
             .stdin(Stdio::piped())
             .spawn()
             .context("Failed to start wl-copy")?;
-        wl_copy
-            .stdin
+        wl_copy.stdin
             .as_mut()
             .unwrap()
             .write_all(&buffer)
@@ -383,7 +374,7 @@ pub fn save_geometry(
     command: Option<Vec<String>>,
     silent: bool,
     notif_timeout: u32,
-    debug: bool,
+    debug: bool
 ) -> Result<()> {
     #[cfg(feature = "grim")]
     return save_geometry_with_grim(
@@ -394,7 +385,7 @@ pub fn save_geometry(
         command,
         silent,
         notif_timeout,
-        debug,
+        debug
     );
     #[cfg(feature = "native")]
     return save_geometry_with_native(
@@ -405,7 +396,7 @@ pub fn save_geometry(
         command,
         silent,
         notif_timeout,
-        debug,
+        debug
     );
     #[cfg(not(any(feature = "grim", feature = "native")))]
     compile_error!("At least one of 'grim' or 'native' features must be enabled");
