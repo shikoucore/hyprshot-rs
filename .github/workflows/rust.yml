@@ -3,6 +3,8 @@ name: Rust
 on:
   push:
     branches: [ "master" ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ "master" ]
 
@@ -11,10 +13,44 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --release
+
+  release:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Build release binary
+      run: cargo build --release --locked
+    
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+    
+    - name: Create tar.gz archive
+      run: |
+        cd target/release
+        tar -czf hyprshot-rs-${{ steps.get_version.outputs.VERSION }}-x86_64.tar.gz hyprshot-rs
+        mv hyprshot-rs-${{ steps.get_version.outputs.VERSION }}-x86_64.tar.gz ../../
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: hyprshot-rs-${{ steps.get_version.outputs.VERSION }}-x86_64.tar.gz
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
