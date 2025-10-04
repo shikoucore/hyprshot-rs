@@ -1,4 +1,4 @@
-[![Crates.io Version](https://img.shields.io/crates/v/hyprshot-rs.svg)](https://crates.io/crates/hyprshot-rs) [![Crates.io License](https://img.shields.io/crates/l/hyprshot-rs.svg)](https://crates.io/crates/hyprshot-rs) [![Rust](https://github.com/vremyavnikuda/hyprshot-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vremyavnikuda/hyprshot-rs/actions/workflows/rust.yml) [![Dependencies](https://deps.rs/repo/github/vremyavnikuda/hyprshot-rs/status.svg)](https://deps.rs/repo/github/vremyavnikuda/hyprshot-rs)
+[![Crates.io Version](https://img.shields.io/crates/v/hyprshot-rs.svg)](https://crates.io/crates/hyprshot-rs) [![Crates.io Downloads](https://img.shields.io/crates/d/hyprshot-rs.svg)](https://crates.io/crates/hyprshot-rs) [![Crates.io License](https://img.shields.io/crates/l/hyprshot-rs.svg)](https://crates.io/crates/hyprshot-rs) [![Rust](https://github.com/vremyavnikuda/hyprshot-rs/actions/workflows/rust.yml/badge.svg)](https://github.com/vremyavnikuda/hyprshot-rs/actions/workflows/rust.yml)
 ___
 
 # Hyprshot-rs
