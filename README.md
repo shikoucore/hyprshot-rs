@@ -3,7 +3,7 @@ ___
 
 # Hyprshot-rs
 ___
-# release version 1.1.3
+# release version 0.1.3
 
 A utility to easily take screenshots in Hyprland using your mouse.
 
