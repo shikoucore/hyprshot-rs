@@ -33,7 +33,7 @@ pub fn save_geometry_with_grim(
 
     if raw {
         let png_bytes = grim
-            .to_png(&capture_result.data, capture_result.width, capture_result.height)
+            .to_png(&capture_result.data(), capture_result.width(), capture_result.height())
             .context("Failed to encode screenshot as PNG")?;
         std::io::stdout().write_all(&png_bytes)?;
         return Ok(());
@@ -46,9 +46,9 @@ pub fn save_geometry_with_grim(
 
         grim
             .save_png(
-                &capture_result.data,
-                capture_result.width,
-                capture_result.height,
+                &capture_result.data(),
+                capture_result.width(),
+                capture_result.height(),
                 save_fullpath
             )
             .context(format!("Failed to save screenshot to '{}'", save_fullpath.display()))?;
@@ -81,7 +81,7 @@ pub fn save_geometry_with_grim(
         }
     } else {
         let png_bytes = grim
-            .to_png(&capture_result.data, capture_result.width, capture_result.height)
+            .to_png(&capture_result.data(), capture_result.width(), capture_result.height())
             .context("Failed to encode screenshot as PNG")?;
 
         let mut wl_copy = Command::new("wl-copy")
