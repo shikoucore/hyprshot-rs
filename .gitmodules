@@ -1,0 +1,3 @@
+[submodule "vendor/slurp"]
+	path = vendor/slurp
+	url = https://github.com/emersion/slurp.git
