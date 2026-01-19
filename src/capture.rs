@@ -5,8 +5,18 @@ use std::{
     process::{Command, Stdio},
 };
 
+#[cfg(target_os = "linux")]
+use crate::embedded_slurp::get_slurp_path;
+
+#[cfg(not(target_os = "linux"))]
+fn get_slurp_path() -> Result<std::path::PathBuf> {
+    Ok(std::path::PathBuf::from("slurp"))
+}
+
 pub fn grab_output(debug: bool) -> Result<String> {
-    let output = Command::new("slurp")
+    let slurp_path = get_slurp_path()?;
+    
+    let output = Command::new(slurp_path)
         .arg("-or")
         .output()
         .context("Failed to run slurp")?;
@@ -119,7 +129,9 @@ pub fn grab_selected_output(monitor: &str, debug: bool) -> Result<String> {
 }
 
 pub fn grab_region(debug: bool) -> Result<String> {
-    let output = Command::new("slurp")
+    let slurp_path = get_slurp_path()?;
+    
+    let output = Command::new(slurp_path)
         .arg("-d")
         .output()
         .context("Failed to run slurp")?;
@@ -220,7 +232,9 @@ pub fn grab_window(debug: bool) -> Result<String> {
         return Err(anyhow::anyhow!("No valid windows found to capture"));
     }
 
-    let mut slurp = Command::new("slurp")
+    let slurp_path = get_slurp_path()?;
+
+    let mut slurp = Command::new(slurp_path)
         .arg("-r")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())

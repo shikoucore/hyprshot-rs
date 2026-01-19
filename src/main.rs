@@ -9,6 +9,8 @@ use toml;
 
 mod capture;
 mod config;
+#[cfg(target_os = "linux")]
+mod embedded_slurp;
 mod save;
 mod utils;
 

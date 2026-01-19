@@ -4,7 +4,7 @@ ___
 
 # Hyprshot-rs
 ___
-# release version 0.1.3
+# release version 0.1.4
 
 A utility to easily take screenshots in Hyprland using your mouse.
 
@@ -33,21 +33,31 @@ A utility to easily take screenshots in Hyprland using your mouse.
 
 ## Installation
 
-Install via Cargo:
+### Via Cargo:
 ```bash
 cargo install hyprshot-rs
 ```
 
-Ensure the following dependencies are installed:
-- `slurp`
-- `wl-clipboard`
-- `hyprland`
-- `hyprpicker` (optional)
+### Via AUR (Arch Linux):
+```bash
+yay -S hyprshot-rs
+```
+
+### Runtime Dependencies
+
+**Required:**
+- `wl-clipboard` - for clipboard operations
+- `hyprland` - the compositor
+
+**Optional:**
+- `hyprpicker` - for screen freeze functionality (`--freeze` flag)
 
 On Arch Linux:
 ```bash
-sudo pacman -S slurp wl-clipboard hyprland hyprpicker
+sudo pacman -S wl-clipboard hyprland hyprpicker
 ```
+
+> **Note:** Starting from v0.1.4, `slurp` is embedded into the binary and no longer needs to be installed separately! If you have `slurp` installed system-wide, hyprshot-rs will use it; otherwise, it will use the embedded version automatically.
 ___
 ## Usage
 Make it available regardless of the shell
