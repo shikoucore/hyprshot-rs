@@ -1,4 +1,4 @@
-use anyhow::{ Context, Result };
+use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -19,7 +19,9 @@ pub fn get_slurp_path() -> Result<PathBuf> {
         );
     }
 
-    let cache_dir = dirs::cache_dir().context("Failed to get cache directory")?.join("hyprshot-rs");
+    let cache_dir = dirs::cache_dir()
+        .context("Failed to get cache directory")?
+        .join("hyprshot-rs");
 
     std::fs::create_dir_all(&cache_dir).context("Failed to create cache directory")?;
 
@@ -38,8 +40,7 @@ fn extract_slurp(target_path: &PathBuf) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        std::fs
-            ::set_permissions(target_path, std::fs::Permissions::from_mode(0o755))
+        std::fs::set_permissions(target_path, std::fs::Permissions::from_mode(0o755))
             .context("Failed to set executable permissions")?;
     }
 

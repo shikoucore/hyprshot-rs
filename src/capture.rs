@@ -15,7 +15,7 @@ fn get_slurp_path() -> Result<std::path::PathBuf> {
 
 pub fn grab_output(debug: bool) -> Result<String> {
     let slurp_path = get_slurp_path()?;
-    
+
     let output = Command::new(slurp_path)
         .arg("-or")
         .output()
@@ -130,7 +130,7 @@ pub fn grab_selected_output(monitor: &str, debug: bool) -> Result<String> {
 
 pub fn grab_region(debug: bool) -> Result<String> {
     let slurp_path = get_slurp_path()?;
-    
+
     let output = Command::new(slurp_path)
         .arg("-d")
         .output()

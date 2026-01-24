@@ -5,6 +5,20 @@ All notable changes to hyprshot-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [release 0.1.4] 2026-01-24
+
+### Added
+- **Embedded slurp build**: Build and embed slurp during compilation with automatic fallback to system slurp
+- **AUR support**: Packaging support via the AUR submodule
+- **Vendored slurp sources**: Include slurp sources in crate packaging to ensure crates.io builds
+
+### Changed
+- **grim-rs update**: Bumped grim-rs dependency to v0.1.4
+- **Documentation**: Clarified mode combinations (`active` modifier), fixed CLI flags, and noted reserved config options
+
+### Fixed
+- **Embedded slurp include path**: Generate `include_bytes!` via `OUT_DIR` to avoid broken absolute paths
+
 ## [release 0.1.3] 2025-10-04
 
 ### Added
