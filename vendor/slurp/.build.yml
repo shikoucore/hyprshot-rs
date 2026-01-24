@@ -1,0 +1,16 @@
+image: archlinux
+packages:
+  - meson
+  - wayland
+  - wayland-protocols
+  - cairo
+  - libxkbcommon
+sources:
+  - https://github.com/emerison/slurp
+tasks:
+  - setup: |
+      cd slurp
+      meson setup build
+  - build: |
+      cd slurp
+      ninja -C build
