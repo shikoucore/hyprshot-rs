@@ -11,7 +11,7 @@ A utility to easily take screenshots in Hyprland using your mouse.
 ## Features
 - **Screenshot Capture**
     - Capture the entire monitor (output)
-    - Capture the active monitor (active)
+    - Capture the active monitor (output + active)
     - Capturing the selected region
     - Capturing the selected window
     - Capture of the active window
@@ -69,8 +69,10 @@ sudo ln -s ~/.local/share/cargo/bin/hyprshot-rs /usr/local/bin/
 hyprshot-rs [options ..] [-m [mode] ..] -- [command]
 ```
 ```
-possible values: output, window, region, active
+possible values: output, window, region, active, OUTPUT_NAME
 ```
+
+Note: `active` is a modifier and must be combined with `output` or `window`.
 
 Possible values:
 - Capture a window:
@@ -85,9 +87,17 @@ hyprshot-rs -m region
 ```bash
 hyprshot-rs -m output
 ```
-- Quick capture (instant screenshot of the workspace where the cursor is):
+- Quick capture (active monitor under the cursor):
 ```bash
-hyprshot-rs -m active -m output
+hyprshot-rs -m output -m active
+```
+- Capture the active window:
+```bash
+hyprshot-rs -m window -m active
+```
+- Capture a specific monitor by name (example: `DP-1`):
+```bash
+hyprshot-rs -m output -m DP-1
 ```
 - Take a screenshot of a selected area and save it in the current directory:
 ~/repository
@@ -138,7 +148,7 @@ hyprshot-rs --install-binds --with-clipboard
 bind = SUPER, Print, exec, hyprshot-rs -m window
 bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region
 bind = SUPER CTRL, Print, exec, hyprshot-rs -m output
-bind = , Print, exec, hyprshot-rs -m active -m output
+bind = , Print, exec, hyprshot-rs -m output -m active
 ```
 
 See [HOTKEYS.md](doc/HOTKEYS.md) for more examples.
