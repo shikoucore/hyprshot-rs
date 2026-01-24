@@ -2,6 +2,3 @@
 	path = aur/hyprshot-rs
 	url = https://aur.archlinux.org/hyprshot-rs.git
 
-[submodule "vendor/slurp"]
-	path = vendor/slurp
-	url = https://github.com/emersion/slurp.git
