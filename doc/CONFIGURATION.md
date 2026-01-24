@@ -296,15 +296,17 @@ Controls screenshot capture behavior and format.
 
 **Type:** String (enum)  
 **Default:** `"png"`  
-**Valid Values:** `png`, `jpeg`, `ppm`  
+**Valid Values:** `png`, `jpeg`, `ppm` (reserved)  
 **CLI Key:** `capture.default_format`
 
 Default image format for saved screenshots.
 
+Note: output is currently always PNG. This setting is reserved for future formats.
+
 ```toml
-default_format = "png"    # Lossless, larger files
-default_format = "jpeg"   # Lossy, smaller files
-default_format = "ppm"    # Uncompressed
+default_format = "png"    # Current output format
+default_format = "jpeg"   # Reserved (not used yet)
+default_format = "ppm"    # Reserved (not used yet)
 ```
 
 #### Format Comparison
@@ -315,7 +317,7 @@ default_format = "ppm"    # Uncompressed
 | `jpeg` | Lossy | Good | Small | Sharing, space-constrained |
 | `ppm` | None | High | Very Large | Raw processing |
 
-**Note:** Currently this setting is defined but may not be fully implemented. PNG is used as the primary format.
+**Note:** This setting is currently ignored. PNG is always used.
 
 #### CLI Examples
 
@@ -332,19 +334,18 @@ hyprshot-rs --set capture.default_format jpeg
 
 Automatically copy screenshots to clipboard after capture.
 
+Note: this setting is not wired yet. Use `--clipboard-only` on the CLI.
+
 ```toml
-clipboard_on_capture = false   # Save to file only (default)
-clipboard_on_capture = true    # Save to file AND copy to clipboard
+clipboard_on_capture = false   # Reserved (currently ignored)
+clipboard_on_capture = true    # Reserved (currently ignored)
 ```
 
 When `true`:
-- Screenshot is saved to disk
-- Screenshot is also copied to clipboard
-- Same as adding `--clipboard-only` but still saves file
+- Reserved (no effect yet)
 
 When `false`:
-- Screenshot is only saved to disk
-- Use `--clipboard-only` flag for clipboard-only capture
+- Reserved (no effect yet)
 
 #### CLI Examples
 

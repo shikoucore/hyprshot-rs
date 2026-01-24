@@ -1,6 +1,6 @@
-use anyhow::{ Context, Result };
+use anyhow::{Context, Result};
 use directories::ProjectDirs;
-use serde::{ Deserialize, Serialize };
+use serde::{Deserialize, Serialize};
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -165,6 +165,7 @@ impl Default for AdvancedConfig {
     }
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -256,15 +257,17 @@ pub fn ensure_directory(path: &str) -> Result<PathBuf> {
     let expanded_path = expand_path(path)?;
 
     if !expanded_path.exists() {
-        fs
-            ::create_dir_all(&expanded_path)
-            .context(format!("Failed to create directory: {}", expanded_path.display()))?;
+        fs::create_dir_all(&expanded_path).context(format!(
+            "Failed to create directory: {}",
+            expanded_path.display()
+        ))?;
     }
 
     if !expanded_path.is_dir() {
-        return Err(
-            anyhow::anyhow!("Path exists but is not a directory: {}", expanded_path.display())
-        );
+        return Err(anyhow::anyhow!(
+            "Path exists but is not a directory: {}",
+            expanded_path.display()
+        ));
     }
 
     let test_file = expanded_path.join(".hyprshot_test");
@@ -273,9 +276,11 @@ pub fn ensure_directory(path: &str) -> Result<PathBuf> {
             let _ = fs::remove_file(&test_file);
             Ok(expanded_path)
         }
-        Err(e) => {
-            Err(anyhow::anyhow!("Directory is not writable: {} - {}", expanded_path.display(), e))
-        }
+        Err(e) => Err(anyhow::anyhow!(
+            "Directory is not writable: {} - {}",
+            expanded_path.display(),
+            e
+        )),
     }
 }
 
@@ -287,7 +292,7 @@ pub fn ensure_directory(path: &str) -> Result<PathBuf> {
 pub fn get_screenshots_dir(
     cli_path: Option<PathBuf>,
     config: &Config,
-    debug: bool
+    debug: bool,
 ) -> Result<PathBuf> {
     if let Some(path) = cli_path {
         if debug {
@@ -299,14 +304,20 @@ pub fn get_screenshots_dir(
     if let Ok(env_path) = env::var("HYPRSHOT_DIR") {
         let expanded = expand_path(&env_path)?;
         if debug {
-            eprintln!("Using screenshot directory from HYPRSHOT_DIR: {}", expanded.display());
+            eprintln!(
+                "Using screenshot directory from HYPRSHOT_DIR: {}",
+                expanded.display()
+            );
         }
         return Ok(expanded);
     }
 
     let config_path = expand_path(&config.paths.screenshots_dir)?;
     if debug {
-        eprintln!("Using screenshot directory from config: {}", config_path.display());
+        eprintln!(
+            "Using screenshot directory from config: {}",
+            config_path.display()
+        );
     }
     Ok(config_path)
 }
@@ -315,9 +326,8 @@ impl Config {
     /// Get the path to the configuration file
     /// Returns ~/.config/hyprshot-rs/config.toml
     pub fn config_path() -> Result<PathBuf> {
-        let proj_dirs = ProjectDirs::from("", "", "hyprshot-rs").context(
-            "Failed to determine config directory"
-        )?;
+        let proj_dirs = ProjectDirs::from("", "", "hyprshot-rs")
+            .context("Failed to determine config directory")?;
 
         let config_dir = proj_dirs.config_dir();
         Ok(config_dir.join("config.toml"))
@@ -326,9 +336,8 @@ impl Config {
     /// Get the configuration directory
     /// Returns ~/.config/hyprshot-rs/
     pub fn config_dir() -> Result<PathBuf> {
-        let proj_dirs = ProjectDirs::from("", "", "hyprshot-rs").context(
-            "Failed to determine config directory"
-        )?;
+        let proj_dirs = ProjectDirs::from("", "", "hyprshot-rs")
+            .context("Failed to determine config directory")?;
 
         Ok(proj_dirs.config_dir().to_path_buf())
     }
@@ -343,13 +352,13 @@ impl Config {
             return Ok(Self::default());
         }
 
-        let content = fs
-            ::read_to_string(&config_path)
-            .context(format!("Failed to read config file: {}", config_path.display()))?;
+        let content = fs::read_to_string(&config_path).context(format!(
+            "Failed to read config file: {}",
+            config_path.display()
+        ))?;
 
-        let config: Config = toml
-            ::from_str(&content)
-            .context("Failed to parse config file. Check TOML syntax.")?;
+        let config: Config =
+            toml::from_str(&content).context("Failed to parse config file. Check TOML syntax.")?;
 
         Ok(config)
     }
@@ -361,26 +370,28 @@ impl Config {
         let config_path = Self::config_path()?;
 
         if !config_dir.exists() {
-            fs
-                ::create_dir_all(&config_dir)
-                .context(format!("Failed to create config directory: {}", config_dir.display()))?;
+            fs::create_dir_all(&config_dir).context(format!(
+                "Failed to create config directory: {}",
+                config_dir.display()
+            ))?;
         }
 
-        let toml_string = toml
-            ::to_string_pretty(self)
-            .context("Failed to serialize config to TOML")?;
+        let toml_string =
+            toml::to_string_pretty(self).context("Failed to serialize config to TOML")?;
 
         let commented_toml = Self::add_comments(&toml_string);
 
-        fs
-            ::write(&config_path, commented_toml)
-            .context(format!("Failed to write config file: {}", config_path.display()))?;
+        fs::write(&config_path, commented_toml).context(format!(
+            "Failed to write config file: {}",
+            config_path.display()
+        ))?;
 
         Ok(())
     }
 
     /// Initialize config with default values and save to file
     /// This creates the config directory and file if they don't exist
+    #[allow(dead_code)]
     pub fn init() -> Result<Self> {
         let config = Self::default();
         config.save()?;
@@ -389,15 +400,12 @@ impl Config {
 
     /// Check if config file exists
     pub fn exists() -> bool {
-        Self::config_path()
-            .map(|p| p.exists())
-            .unwrap_or(false)
+        Self::config_path().map(|p| p.exists()).unwrap_or(false)
     }
 
     /// Add helpful comments to the TOML configuration
     fn add_comments(toml: &str) -> String {
-        let header =
-            "# hyprshot-rs configuration file\n\
+        let header = "# hyprshot-rs configuration file\n\
                       # This file is automatically generated. Edit with care.\n\
                       # For more information, see: https://github.com/vremyavnikuda/hyprshot-rs\n\n";
 
@@ -434,15 +442,22 @@ impl Config {
 
         // Basic screenshot bindings
         binds.push_str("# Screenshot keybindings\n");
-        binds.push_str(&format!("bind = {}, exec, hyprshot-rs -m window\n", self.hotkeys.window));
-        binds.push_str(&format!("bind = {}, exec, hyprshot-rs -m region\n", self.hotkeys.region));
-        binds.push_str(&format!("bind = {}, exec, hyprshot-rs -m output\n", self.hotkeys.output));
-        binds.push_str(
-            &format!(
-                "bind = {}, exec, hyprshot-rs -m active -m output\n",
-                self.hotkeys.active_output
-            )
-        );
+        binds.push_str(&format!(
+            "bind = {}, exec, hyprshot-rs -m window\n",
+            self.hotkeys.window
+        ));
+        binds.push_str(&format!(
+            "bind = {}, exec, hyprshot-rs -m region\n",
+            self.hotkeys.region
+        ));
+        binds.push_str(&format!(
+            "bind = {}, exec, hyprshot-rs -m output\n",
+            self.hotkeys.output
+        ));
+        binds.push_str(&format!(
+            "bind = {}, exec, hyprshot-rs -m active -m output\n",
+            self.hotkeys.active_output
+        ));
 
         binds
     }
@@ -458,15 +473,18 @@ impl Config {
         let region_clipboard = self.add_alt_modifier(&self.hotkeys.region);
         let output_clipboard = self.add_alt_modifier(&self.hotkeys.output);
 
-        binds.push_str(
-            &format!("bind = {}, exec, hyprshot-rs -m window --clipboard-only\n", window_clipboard)
-        );
-        binds.push_str(
-            &format!("bind = {}, exec, hyprshot-rs -m region --clipboard-only\n", region_clipboard)
-        );
-        binds.push_str(
-            &format!("bind = {}, exec, hyprshot-rs -m output --clipboard-only\n", output_clipboard)
-        );
+        binds.push_str(&format!(
+            "bind = {}, exec, hyprshot-rs -m window --clipboard-only\n",
+            window_clipboard
+        ));
+        binds.push_str(&format!(
+            "bind = {}, exec, hyprshot-rs -m region --clipboard-only\n",
+            region_clipboard
+        ));
+        binds.push_str(&format!(
+            "bind = {}, exec, hyprshot-rs -m output --clipboard-only\n",
+            output_clipboard
+        ));
 
         binds
     }
@@ -496,8 +514,7 @@ impl Config {
     /// Install Hyprland bindings to hyprland.conf
     /// Returns the path where bindings were installed
     pub fn install_hyprland_binds(&self, with_clipboard: bool) -> Result<PathBuf> {
-        let hyprland_conf = dirs
-            ::home_dir()
+        let hyprland_conf = dirs::home_dir()
             .context("Failed to get home directory")?
             .join(".config/hypr/hyprland.conf");
 
@@ -508,9 +525,8 @@ impl Config {
             );
         }
 
-        let existing_config = fs
-            ::read_to_string(&hyprland_conf)
-            .context("Failed to read hyprland.conf")?;
+        let existing_config =
+            fs::read_to_string(&hyprland_conf).context("Failed to read hyprland.conf")?;
 
         if existing_config.contains("# hyprshot-rs keybindings") {
             anyhow::bail!(
@@ -533,7 +549,8 @@ impl Config {
         new_config.push_str(&binds);
 
         let backup_path = hyprland_conf.with_extension("conf.backup");
-        fs::copy(&hyprland_conf, &backup_path).context("Failed to create backup of hyprland.conf")?;
+        fs::copy(&hyprland_conf, &backup_path)
+            .context("Failed to create backup of hyprland.conf")?;
 
         fs::write(&hyprland_conf, new_config).context("Failed to write to hyprland.conf")?;
 
@@ -542,8 +559,7 @@ impl Config {
 
     /// Get the path to Hyprland config file
     pub fn hyprland_config_path() -> Result<PathBuf> {
-        let path = dirs
-            ::home_dir()
+        let path = dirs::home_dir()
             .context("Failed to get home directory")?
             .join(".config/hypr/hyprland.conf");
         Ok(path)
@@ -578,8 +594,7 @@ mod tests {
 
     #[test]
     fn test_config_deserialization() {
-        let toml_str =
-            r#"
+        let toml_str = r#"
             [paths]
             screenshots_dir = "~/Documents"
 
@@ -754,16 +769,12 @@ mod tests {
         assert!(
             binds.contains("bind = SUPER ALT, Print, exec, hyprshot-rs -m window --clipboard-only")
         );
-        assert!(
-            binds.contains(
-                "bind = SUPER SHIFT ALT, Print, exec, hyprshot-rs -m region --clipboard-only"
-            )
-        );
-        assert!(
-            binds.contains(
-                "bind = SUPER CTRL ALT, Print, exec, hyprshot-rs -m output --clipboard-only"
-            )
-        );
+        assert!(binds.contains(
+            "bind = SUPER SHIFT ALT, Print, exec, hyprshot-rs -m region --clipboard-only"
+        ));
+        assert!(binds.contains(
+            "bind = SUPER CTRL ALT, Print, exec, hyprshot-rs -m output --clipboard-only"
+        ));
     }
 
     #[test]
@@ -774,9 +785,15 @@ mod tests {
 
         assert_eq!(config.add_alt_modifier(", Print"), "ALT, Print");
 
-        assert_eq!(config.add_alt_modifier("SUPER SHIFT, Print"), "SUPER SHIFT ALT, Print");
+        assert_eq!(
+            config.add_alt_modifier("SUPER SHIFT, Print"),
+            "SUPER SHIFT ALT, Print"
+        );
 
-        assert_eq!(config.add_alt_modifier("SUPER ALT, Print"), "SUPER ALT, Print");
+        assert_eq!(
+            config.add_alt_modifier("SUPER ALT, Print"),
+            "SUPER ALT, Print"
+        );
         assert_eq!(config.add_alt_modifier("ALT, Print"), "ALT, Print");
 
         assert_eq!(config.add_alt_modifier("CTRL, S"), "CTRL ALT, S");

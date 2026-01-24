@@ -96,7 +96,7 @@ hyprctl reload
 bind = SUPER, Print, exec, hyprshot-rs -m window
 bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region
 bind = SUPER CTRL, Print, exec, hyprshot-rs -m output
-bind = , Print, exec, hyprshot-rs -m active -m output
+bind = , Print, exec, hyprshot-rs -m output -m active
 ```
 
 **Clipboard-Only Screenshots** (with `--with-clipboard`):
@@ -149,7 +149,7 @@ Add to `~/.config/sway/config`:
 bindsym $mod+Print exec hyprshot-rs -m window
 bindsym $mod+Shift+Print exec hyprshot-rs -m region
 bindsym $mod+Ctrl+Print exec hyprshot-rs -m output
-bindsym Print exec hyprshot-rs -m active -m output
+bindsym Print exec hyprshot-rs -m output -m active
 
 # Clipboard-only variants
 bindsym $mod+Mod1+Print exec hyprshot-rs -m window --clipboard-only
@@ -172,7 +172,7 @@ mode "screenshot" {
     bindsym w exec hyprshot-rs -m window; mode "default"
     bindsym r exec hyprshot-rs -m region; mode "default"
     bindsym o exec hyprshot-rs -m output; mode "default"
-    bindsym a exec hyprshot-rs -m active -m output; mode "default"
+    bindsym a exec hyprshot-rs -m output -m active; mode "default"
     
     # Clipboard variants
     bindsym Shift+w exec hyprshot-rs -m window --clipboard-only; mode "default"
@@ -203,7 +203,7 @@ Add to `~/.config/i3/config`:
 bindsym $mod+Print exec --no-startup-id hyprshot-rs -m window
 bindsym $mod+Shift+Print exec --no-startup-id hyprshot-rs -m region
 bindsym $mod+Ctrl+Print exec --no-startup-id hyprshot-rs -m output
-bindsym Print exec --no-startup-id hyprshot-rs -m active -m output
+bindsym Print exec --no-startup-id hyprshot-rs -m output -m active
 
 # Clipboard-only variants
 bindsym $mod+Mod1+Print exec --no-startup-id hyprshot-rs -m window --clipboard-only
@@ -272,7 +272,7 @@ hyprshot-rs --install-binds --with-clipboard
 
 ```conf
 # Print alone - active output
-bind = , Print, exec, hyprshot-rs -m active -m output
+bind = , Print, exec, hyprshot-rs -m output -m active
 
 # Super+Print - window
 bind = SUPER, Print, exec, hyprshot-rs -m window
@@ -290,7 +290,7 @@ bind = SUPER CTRL, Print, exec, hyprshot-rs -m output
 bind = SUPER, F9, exec, hyprshot-rs -m window
 bind = SUPER, F10, exec, hyprshot-rs -m region
 bind = SUPER, F11, exec, hyprshot-rs -m output
-bind = SUPER, F12, exec, hyprshot-rs -m active -m output
+bind = SUPER, F12, exec, hyprshot-rs -m output -m active
 ```
 
 ### Letter Key Shortcuts

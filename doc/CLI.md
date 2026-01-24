@@ -29,7 +29,7 @@ hyprshot-rs -m region
 hyprshot-rs -m window -m active
 
 # Capture specific monitor
-hyprshot-rs -m output
+hyprshot-rs -m output -m DP-1
 ```
 
 ---
@@ -45,7 +45,7 @@ Specify one or more modes with `-m` / `--mode`:
 | `region` | Select a region with your mouse | `hyprshot-rs -m region` |
 | `window` | Select a window | `hyprshot-rs -m window` |
 | `output` | Select a monitor | `hyprshot-rs -m output` |
-| `active` | Capture active window/monitor | `hyprshot-rs -m window -m active` |
+| `active` | Modifier: capture active window/monitor (use with `output` or `window`) | `hyprshot-rs -m window -m active` |
 | `OUTPUT_NAME` | Capture specific monitor by name | `hyprshot-rs -m output -m DP-1` |
 
 ### Mode Combinations
@@ -56,7 +56,6 @@ hyprshot-rs -m window -m active
 
 # Active monitor (no selection needed)
 hyprshot-rs -m output -m active
-hyprshot-rs -m active -m output  # Same as above
 
 # Specific monitor by name
 hyprshot-rs -m output -m DP-1
@@ -199,7 +198,7 @@ hyprshot-rs --set advanced.delay_ms 1000
 | Option | Short | Description | Example |
 |--------|-------|-------------|---------|
 | `--silent` | `-s` | Don't show notifications | `-s` |
-| `--notif-timeout` | `-t` | Notification timeout (ms) | `-t 5000` |
+| `--notif-timeout` | `-n` | Notification timeout (ms) | `-n 5000` |
 
 ### Other Options
 

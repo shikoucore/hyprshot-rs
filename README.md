@@ -4,14 +4,14 @@ ___
 
 # Hyprshot-rs
 ___
-# release version 0.1.3
+# release version 0.1.4
 
 A utility to easily take screenshots in Hyprland using your mouse.
 
 ## Features
 - **Screenshot Capture**
     - Capture the entire monitor (output)
-    - Capture the active monitor (active)
+    - Capture the active monitor (output + active)
     - Capturing the selected region
     - Capturing the selected window
     - Capture of the active window
@@ -33,21 +33,31 @@ A utility to easily take screenshots in Hyprland using your mouse.
 
 ## Installation
 
-Install via Cargo:
+### Via Cargo:
 ```bash
 cargo install hyprshot-rs
 ```
 
-Ensure the following dependencies are installed:
-- `slurp`
-- `wl-clipboard`
-- `hyprland`
-- `hyprpicker` (optional)
+### Via AUR (Arch Linux):
+```bash
+yay -S hyprshot-rs
+```
+
+### Runtime Dependencies
+
+**Required:**
+- `wl-clipboard` - for clipboard operations
+- `hyprland` - the compositor
+
+**Optional:**
+- `hyprpicker` - for screen freeze functionality (`--freeze` flag)
 
 On Arch Linux:
 ```bash
-sudo pacman -S slurp wl-clipboard hyprland hyprpicker
+sudo pacman -S wl-clipboard hyprland hyprpicker
 ```
+
+> **Note:** Starting from v0.1.4, `slurp` is embedded into the binary and no longer needs to be installed separately! If you have `slurp` installed system-wide, hyprshot-rs will use it; otherwise, it will use the embedded version automatically.
 ___
 ## Usage
 Make it available regardless of the shell
@@ -59,8 +69,10 @@ sudo ln -s ~/.local/share/cargo/bin/hyprshot-rs /usr/local/bin/
 hyprshot-rs [options ..] [-m [mode] ..] -- [command]
 ```
 ```
-possible values: output, window, region, active
+possible values: output, window, region, active, OUTPUT_NAME
 ```
+
+Note: `active` is a modifier and must be combined with `output` or `window`.
 
 Possible values:
 - Capture a window:
@@ -75,9 +87,17 @@ hyprshot-rs -m region
 ```bash
 hyprshot-rs -m output
 ```
-- Quick capture (instant screenshot of the workspace where the cursor is):
+- Quick capture (active monitor under the cursor):
 ```bash
-hyprshot-rs -m active -m output
+hyprshot-rs -m output -m active
+```
+- Capture the active window:
+```bash
+hyprshot-rs -m window -m active
+```
+- Capture a specific monitor by name (example: `DP-1`):
+```bash
+hyprshot-rs -m output -m DP-1
 ```
 - Take a screenshot of a selected area and save it in the current directory:
 ~/repository
@@ -128,7 +148,7 @@ hyprshot-rs --install-binds --with-clipboard
 bind = SUPER, Print, exec, hyprshot-rs -m window
 bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region
 bind = SUPER CTRL, Print, exec, hyprshot-rs -m output
-bind = , Print, exec, hyprshot-rs -m active -m output
+bind = , Print, exec, hyprshot-rs -m output -m active
 ```
 
 See [HOTKEYS.md](doc/HOTKEYS.md) for more examples.

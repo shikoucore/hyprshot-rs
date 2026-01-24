@@ -1,21 +1,29 @@
-use anyhow::{ Context, Result };
+use anyhow::{Context, Result};
 use chrono::Local;
-use clap::{ Parser, ValueEnum };
+use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
-use toml;
 
 mod capture;
 mod config;
+#[cfg(target_os = "linux")]
+mod embedded_slurp;
 mod save;
 mod utils;
 
 #[derive(Parser)]
-#[command(name = "hyprshot-rs", about = "Utility to easily take screenshots in Hyprland")]
+#[command(
+    name = "hyprshot-rs",
+    about = "Utility to easily take screenshots in Hyprland"
+)]
 struct Args {
-    #[arg(short = 'm', long, help = "Mode: output, window, region, active, or OUTPUT_NAME")]
+    #[arg(
+        short = 'm',
+        long,
+        help = "Mode: output, window, region, active, or OUTPUT_NAME"
+    )]
     mode: Vec<Mode>,
 
     #[arg(short, long, help = "Directory to save screenshot")]
@@ -39,7 +47,12 @@ struct Args {
     #[arg(short, long, help = "Output raw image data to stdout")]
     raw: bool,
 
-    #[arg(short, long, default_value = "5000", help = "Notification timeout (ms)")]
+    #[arg(
+        short,
+        long,
+        default_value = "5000",
+        help = "Notification timeout (ms)"
+    )]
     notif_timeout: u32,
 
     #[arg(long, help = "Copy to clipboard and don't save to disk")]
@@ -79,7 +92,10 @@ struct Args {
     #[arg(long, help = "Interactive hotkeys setup wizard")]
     setup_hotkeys: bool,
 
-    #[arg(long, help = "Don't load configuration file (use defaults and CLI args only)")]
+    #[arg(
+        long,
+        help = "Don't load configuration file (use defaults and CLI args only)"
+    )]
     no_config: bool,
 }
 
@@ -107,7 +123,9 @@ enum Mode {
     Window,
     Region,
     Active,
-    #[clap(skip)] OutputName(String),
+    #[clap(skip)]
+    #[allow(dead_code)]
+    OutputName(String),
 }
 
 fn main() -> Result<()> {
@@ -151,7 +169,11 @@ fn main() -> Result<()> {
     let debug = args.debug;
     let clipboard_only = args.clipboard_only;
     let raw = args.raw;
-    let command = if args.command.is_empty() { None } else { Some(args.command) };
+    let command = if args.command.is_empty() {
+        None
+    } else {
+        Some(args.command)
+    };
 
     let mut option: Option<Mode> = None;
     let mut current = false;
@@ -190,30 +212,30 @@ fn main() -> Result<()> {
     };
 
     // Apply settings with priority: CLI > config > default
-    
+
     // Notification settings
     let silent = if args.silent {
         true
     } else {
         !config.capture.notification
     };
-    
+
     let notif_timeout = if args.notif_timeout != 5000 {
         args.notif_timeout
     } else {
         config.capture.notification_timeout
     };
-    
+
     let freeze = if args.freeze {
         true
     } else {
         config.advanced.freeze_on_region
     };
-    
+
     let delay = if let Some(d) = args.delay {
         d
     } else if config.advanced.delay_ms > 0 {
-        ((config.advanced.delay_ms + 999) / 1000) as u64
+        config.advanced.delay_ms.div_ceil(1000) as u64
     } else {
         0u64
     };
@@ -227,7 +249,9 @@ fn main() -> Result<()> {
     };
 
     let filename = args.filename.unwrap_or_else(|| {
-        Local::now().format("%Y-%m-%d-%H%M%S_hyprshot.png").to_string()
+        Local::now()
+            .format("%Y-%m-%d-%H%M%S_hyprshot.png")
+            .to_string()
     });
     let save_fullpath = save_dir.join(&filename);
 
@@ -281,11 +305,14 @@ fn main() -> Result<()> {
         command,
         silent,
         notif_timeout,
-        debug
+        debug,
     )?;
 
     if let Some(pid) = hyprpicker_pid {
-        Command::new("kill").arg(pid.to_string()).status().context("Failed to kill hyprpicker")?;
+        Command::new("kill")
+            .arg(pid.to_string())
+            .status()
+            .context("Failed to kill hyprpicker")?;
     }
 
     Ok(())
@@ -319,7 +346,10 @@ fn handle_show_config() -> Result<()> {
     let config_path = config::Config::config_path()?;
 
     println!("Configuration file: {}", config_path.display());
-    println!("\n{}", toml::to_string_pretty(&config).context("Failed to serialize config")?);
+    println!(
+        "\n{}",
+        toml::to_string_pretty(&config).context("Failed to serialize config")?
+    );
 
     Ok(())
 }
@@ -332,7 +362,9 @@ fn handle_config_path() -> Result<()> {
 
 fn handle_set_config(args: &[String]) -> Result<()> {
     if args.len() != 2 {
-        return Err(anyhow::anyhow!("--set requires exactly 2 arguments: KEY VALUE"));
+        return Err(anyhow::anyhow!(
+            "--set requires exactly 2 arguments: KEY VALUE"
+        ));
     }
 
     let key = &args[0];
@@ -360,7 +392,10 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
     let parts: Vec<&str> = key.split('.').collect();
 
     if parts.len() != 2 {
-        return Err(anyhow::anyhow!("Invalid key format. Expected 'section.field', got '{}'", key));
+        return Err(anyhow::anyhow!(
+            "Invalid key format. Expected 'section.field', got '{}'",
+            key
+        ));
     }
 
     let section = parts[0];
@@ -389,19 +424,20 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
         // [capture] section
         ("capture", "default_format") => {
             if !["png", "jpeg", "ppm"].contains(&value) {
-                return Err(
-                    anyhow::anyhow!("Invalid format '{}'. Must be one of: png, jpeg, ppm", value)
-                );
+                return Err(anyhow::anyhow!(
+                    "Invalid format '{}'. Must be one of: png, jpeg, ppm",
+                    value
+                ));
             }
             config.capture.default_format = value.to_string();
         }
         ("capture", "clipboard_on_capture") => {
-            config.capture.clipboard_on_capture = value
-                .parse()
-                .context("Value must be 'true' or 'false'")?;
+            config.capture.clipboard_on_capture =
+                value.parse().context("Value must be 'true' or 'false'")?;
         }
         ("capture", "notification") => {
-            config.capture.notification = value.parse().context("Value must be 'true' or 'false'")?;
+            config.capture.notification =
+                value.parse().context("Value must be 'true' or 'false'")?;
         }
         ("capture", "notification_timeout") => {
             config.capture.notification_timeout = value
@@ -411,9 +447,8 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
 
         // [advanced] section
         ("advanced", "freeze_on_region") => {
-            config.advanced.freeze_on_region = value
-                .parse()
-                .context("Value must be 'true' or 'false'")?;
+            config.advanced.freeze_on_region =
+                value.parse().context("Value must be 'true' or 'false'")?;
         }
         ("advanced", "delay_ms") => {
             config.advanced.delay_ms = value
@@ -422,9 +457,8 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
         }
 
         _ => {
-            return Err(
-                anyhow::anyhow!(
-                    "Unknown config key: {}.{}\n\nAvailable keys:\n\
+            return Err(anyhow::anyhow!(
+                "Unknown config key: {}.{}\n\nAvailable keys:\n\
                  Paths:\n\
                    - paths.screenshots_dir\n\
                  Hotkeys:\n\
@@ -440,10 +474,9 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
                  Advanced:\n\
                    - advanced.freeze_on_region (true, false)\n\
                    - advanced.delay_ms (milliseconds)",
-                    section,
-                    field
-                )
-            );
+                section,
+                field
+            ));
         }
     }
 
@@ -465,11 +498,14 @@ fn handle_generate_hyprland_config(with_clipboard: bool) -> Result<()> {
     println!("1. Copy the output above");
     println!("2. Paste into ~/.config/hypr/hyprland.conf");
     println!("3. Reload Hyprland config: hyprctl reload");
-    println!("\nOr use: hyprshot-rs --install-binds{}", if with_clipboard {
-        " --with-clipboard"
-    } else {
-        ""
-    });
+    println!(
+        "\nOr use: hyprshot-rs --install-binds{}",
+        if with_clipboard {
+            " --with-clipboard"
+        } else {
+            ""
+        }
+    );
 
     Ok(())
 }
@@ -499,7 +535,10 @@ fn handle_install_binds(with_clipboard: bool) -> Result<()> {
 
     println!("Keybindings installed successfully!");
     println!("Config file: {}", installed_path.display());
-    println!("Backup created: {}", installed_path.with_extension("conf.backup").display());
+    println!(
+        "Backup created: {}",
+        installed_path.with_extension("conf.backup").display()
+    );
 
     if with_clipboard {
         println!("\nInstalled bindings (with clipboard variants):");
@@ -528,7 +567,7 @@ fn handle_install_binds(with_clipboard: bool) -> Result<()> {
 
 /// Interactive hotkeys setup wizard
 fn handle_setup_hotkeys() -> Result<()> {
-    use dialoguer::{ theme::ColorfulTheme, Input, Confirm };
+    use dialoguer::{Confirm, Input, theme::ColorfulTheme};
 
     println!("This wizard will help you configure hotkeys for hyprshot-rs.");
     println!("Format: \"MODIFIER, KEY\" (e.g., \"SUPER, Print\", \"ALT SHIFT, S\")");
@@ -615,7 +654,10 @@ fn handle_setup_hotkeys() -> Result<()> {
         .interact()?
     {
         config.save()?;
-        println!("\nConfiguration saved to: {}", config::Config::config_path()?.display());
+        println!(
+            "\nConfiguration saved to: {}",
+            config::Config::config_path()?.display()
+        );
 
         println!();
         if Confirm::with_theme(&theme)
