@@ -54,7 +54,7 @@ yay -S hyprshot-rs
 
 On Arch Linux:
 ```bash
-sudo pacman -S wl-clipboard hyprland hyprpicker
+sudo pacman -S wl-clipboard hyprland
 ```
 
 > **Note:** Starting from v0.1.4, `slurp` is embedded into the binary and no longer needs to be installed separately! If you have `slurp` installed system-wide, hyprshot-rs will use it; otherwise, it will use the embedded version automatically.
