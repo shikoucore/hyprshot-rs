@@ -46,11 +46,15 @@ A utility to easily take screenshots in Hyprland using your mouse.
 cargo install hyprshot-rs
 ```
 
+Note: `cargo install` builds from source. For the embedded slurp path to be available, the build needs `meson`, `ninja`, and slurp build dependencies (Wayland/Cairo/xkbcommon). If those aren't present, install system `slurp` and hyprshot-rs will use it automatically.
+
 ### Via AUR (Arch Linux):
 
 ```bash
 yay -S hyprshot-rs
 ```
+
+The AUR package is the primary distribution channel: the newest releases and experimental features land there first. Dependencies are pulled automatically (no extra manual steps required).
 
 ### Runtime Dependencies
 
@@ -69,7 +73,7 @@ On Arch Linux:
 sudo pacman -S wl-clipboard hyprland
 ```
 
-> **Note:** Starting from v0.1.4, `slurp` is embedded into the binary and no longer needs to be installed separately! If you have `slurp` installed system-wide, hyprshot-rs will use it; otherwise, it will use the embedded version automatically.
+> **Note:** hyprshot-rs prefers system `slurp` if it’s installed. If it isn’t, the embedded slurp (when available in the build) is used automatically.
 
 ---
 
