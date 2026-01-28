@@ -8,7 +8,6 @@ Complete guide for setting up keybindings for hyprshot-rs in various window mana
 - [Hyprland](#hyprland)
 - [Sway](#sway)
 - [i3](#i3)
-- [Customizing Hotkeys](#customizing-hotkeys)
 - [Common Patterns](#common-patterns)
 - [Troubleshooting](#troubleshooting)
 
@@ -16,95 +15,13 @@ Complete guide for setting up keybindings for hyprshot-rs in various window mana
 
 ## Quick Start
 
-### For Hyprland Users
-
-The easiest way to set up keybindings:
-
-```bash
-# Generate keybindings based on your config
-hyprshot-rs --generate-hyprland-config --with-clipboard
-
-# Automatically install to hyprland.conf (creates backup)
-hyprshot-rs --install-binds --with-clipboard
-
-# Reload Hyprland
-hyprctl reload
-```
-
-### Manual Setup
-
-1. Initialize config (if not done already):
-   ```bash
-   hyprshot-rs --init-config
-   ```
-
-2. Customize hotkeys in config:
-   ```bash
-   hyprshot-rs --set hotkeys.window "SUPER, Print"
-   hyprshot-rs --set hotkeys.region "SUPER SHIFT, Print"
-   ```
-
-3. Generate and install bindings:
-   ```bash
-   hyprshot-rs --generate-hyprland-config
-   ```
+For Hyprland setup commands and basic usage, see [README.md](../README.md) and [CLI.md](CLI.md). This document focuses on keybinding patterns and compositor-specific notes.
 
 ---
 
 ## Hyprland
 
-### Automatic Installation
-
-Generate and install keybindings automatically:
-
-```bash
-# Install basic screenshot bindings
-hyprshot-rs --install-binds
-
-# Install with clipboard-only variants (recommended)
-hyprshot-rs --install-binds --with-clipboard
-```
-
-This will:
-- Create a backup at `~/.config/hypr/hyprland.conf.backup`
-- Append keybindings to your `hyprland.conf`
-- Show you what was installed
-
-To apply changes:
-```bash
-hyprctl reload
-```
-
-### Manual Installation
-
-1. Generate keybindings:
-   ```bash
-   hyprshot-rs --generate-hyprland-config --with-clipboard
-   ```
-
-2. Copy the output and paste into `~/.config/hypr/hyprland.conf`
-
-3. Reload Hyprland:
-   ```bash
-   hyprctl reload
-   ```
-
-### Default Keybindings
-
-**Basic Screenshots:**
-```conf
-bind = SUPER, Print, exec, hyprshot-rs -m window
-bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region
-bind = SUPER CTRL, Print, exec, hyprshot-rs -m output
-bind = , Print, exec, hyprshot-rs -m output -m active
-```
-
-**Clipboard-Only Screenshots** (with `--with-clipboard`):
-```conf
-bind = SUPER ALT, Print, exec, hyprshot-rs -m window --clipboard-only
-bind = SUPER SHIFT ALT, Print, exec, hyprshot-rs -m region --clipboard-only
-bind = SUPER CTRL ALT, Print, exec, hyprshot-rs -m output --clipboard-only
-```
+Hyprland bindings are generated from your config and installed via CLI commands. See [CLI.md](CLI.md) for command flags and [CONFIGURATION.md](CONFIGURATION.md) for default hotkeys.
 
 ### Custom Keybindings
 
@@ -222,47 +139,7 @@ i3-msg reload
 
 ## Customizing Hotkeys
 
-### Configuration File
-
-Hotkeys are stored in `~/.config/hyprshot-rs/config.toml`:
-
-```toml
-[hotkeys]
-window = "SUPER, Print"
-region = "SUPER SHIFT, Print"
-output = "SUPER CTRL, Print"
-active_output = ", Print"
-```
-
-### Using CLI
-
-Change hotkeys via command line:
-
-```bash
-# Change window hotkey to Alt+Print
-hyprshot-rs --set hotkeys.window "ALT, Print"
-
-# Change region to Super+S
-hyprshot-rs --set hotkeys.region "SUPER, S"
-
-# Change output to Super+F12
-hyprshot-rs --set hotkeys.output "SUPER, F12"
-
-# Use just Print key for active output
-hyprshot-rs --set hotkeys.active_output ", Print"
-```
-
-### Regenerating Bindings
-
-After changing hotkeys, regenerate bindings:
-
-```bash
-# Generate new bindings
-hyprshot-rs --generate-hyprland-config --with-clipboard
-
-# Or reinstall (remove old ones first)
-hyprshot-rs --install-binds --with-clipboard
-```
+Hotkey defaults live in the config file; see [CONFIGURATION.md](CONFIGURATION.md). CLI commands for updating and regenerating bindings are documented in [CLI.md](CLI.md).
 
 ---
 
@@ -523,8 +400,3 @@ bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region -s
 - [CLI Reference](CLI.md) - Complete command-line options
 - [Configuration Guide](CONFIGURATION.md) - Full configuration reference
 - [README.md](../README.md) - Project overview
-
----
-
-**Last Updated:** 2025  
-**hyprshot-rs Version:** 0.1.3
