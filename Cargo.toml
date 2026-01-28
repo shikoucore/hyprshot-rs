@@ -1,6 +1,6 @@
 [package]
 name = "hyprshot-rs"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2024"
 authors = ["vremyavnikuda <hopperplayer0@gmail.com>"]
 description = "A utility to easily take screenshots in Hyprland using your mouse"

@@ -35,25 +35,7 @@ hyprshot-rs uses a TOML configuration file to store user preferences and setting
 
 ## Quick Start
 
-Initialize configuration with default values:
-
-```bash
-hyprshot-rs --init-config
-```
-
-This creates `~/.config/hyprshot-rs/config.toml` with sensible defaults.
-
-View your current configuration:
-
-```bash
-hyprshot-rs --show-config
-```
-
-Change a setting:
-
-```bash
-hyprshot-rs --set paths.screenshots_dir ~/Documents/Screenshots
-```
+For initialization and CLI-based edits (`--init-config`, `--show-config`, `--set`), see [CLI.md](CLI.md). This document focuses on configuration fields and semantics.
 
 ---
 
@@ -85,7 +67,7 @@ $EDITOR ~/.config/hyprshot-rs/config.toml
 
 # Or specific editors
 nano ~/.config/hyprshot-rs/config.toml
-vim ~/.config/hyprshot-rs/config.toml
+nvim ~/.config/hyprshot-rs/config.toml
 code ~/.config/hyprshot-rs/config.toml
 ```
 
@@ -257,34 +239,7 @@ active_output = "SHIFT, Print"   # With modifier
 active_output = "SUPER, A"       # Custom
 ```
 
-### Using Hotkeys in Hyprland
-
-Add these to your `~/.config/hypr/hyprland.conf`:
-
-```conf
-# Read values from your config
-bind = SUPER, Print, exec, hyprshot-rs -m window
-bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region
-bind = SUPER CTRL, Print, exec, hyprshot-rs -m output
-bind = , Print, exec, hyprshot-rs -m active -m output
-
-# Clipboard variants
-bind = SUPER ALT, Print, exec, hyprshot-rs -m window --clipboard-only
-bind = SUPER ALT SHIFT, Print, exec, hyprshot-rs -m region --clipboard-only
-```
-
-### CLI Examples
-
-```bash
-# Change window hotkey
-hyprshot-rs --set hotkeys.window "ALT, Print"
-
-# Change region hotkey
-hyprshot-rs --set hotkeys.region "SUPER, S"
-
-# View all hotkeys
-hyprshot-rs --show-config | grep -A 5 '\[hotkeys\]'
-```
+For Hyprland/Sway/i3 binding workflows and examples, see [HOTKEYS.md](HOTKEYS.md). For CLI commands that update hotkeys, see [CLI.md](CLI.md).
 
 ---
 
@@ -622,124 +577,7 @@ hyprshot-rs -m region
 
 ## Managing Configuration
 
-### Initialization
-
-Create default configuration file:
-
-```bash
-hyprshot-rs --init-config
-```
-
-This will:
-- Create `~/.config/hyprshot-rs/config.toml`
-- Populate with default values
-- Show confirmation message
-- Provide usage examples
-
-### Viewing Configuration
-
-Show complete configuration:
-
-```bash
-hyprshot-rs --show-config
-```
-
-Output:
-```
-Configuration file: /home/username/.config/hyprshot-rs/config.toml
-
-[paths]
-screenshots_dir = "/home/username/Pictures"
-
-[hotkeys]
-window = "SUPER, Print"
-...
-```
-
-Get config file path:
-
-```bash
-hyprshot-rs --config-path
-```
-
-Output:
-```
-/home/username/.config/hyprshot-rs/config.toml
-```
-
-### Modifying Configuration
-
-#### Using CLI Commands
-
-Set individual values:
-
-```bash
-# Set screenshots directory
-hyprshot-rs --set paths.screenshots_dir ~/Screenshots
-
-# Enable clipboard on capture
-hyprshot-rs --set capture.clipboard_on_capture true
-
-# Set notification timeout
-hyprshot-rs --set capture.notification_timeout 5000
-
-# Change hotkey
-hyprshot-rs --set hotkeys.window "ALT, Print"
-```
-
-#### Manual Editing
-
-Edit the TOML file directly:
-
-```bash
-# Using default editor
-$EDITOR ~/.config/hyprshot-rs/config.toml
-
-# Using specific editor
-nano ~/.config/hyprshot-rs/config.toml
-vim ~/.config/hyprshot-rs/config.toml
-code ~/.config/hyprshot-rs/config.toml
-```
-
-#### Validation
-
-Configuration is validated:
-- When using `--set` (immediate validation)
-- When loading config (at runtime)
-- Invalid values are rejected with clear error messages
-
-### Resetting Configuration
-
-Delete and recreate:
-
-```bash
-# Remove config file
-rm ~/.config/hyprshot-rs/config.toml
-
-# Create fresh default config
-hyprshot-rs --init-config
-```
-
-### Backup and Restore
-
-Backup your configuration:
-
-```bash
-# Create backup
-cp ~/.config/hyprshot-rs/config.toml ~/.config/hyprshot-rs/config.toml.backup
-
-# Create timestamped backup
-cp ~/.config/hyprshot-rs/config.toml \
-   ~/.config/hyprshot-rs/config.toml.$(date +%Y%m%d-%H%M%S)
-```
-
-Restore from backup:
-
-```bash
-# Restore backup
-cp ~/.config/hyprshot-rs/config.toml.backup \
-   ~/.config/hyprshot-rs/config.toml
-```
+For CLI-based config management (`--init-config`, `--show-config`, `--config-path`, `--set`), see [CLI.md](CLI.md). This document focuses on field semantics and TOML structure.
 
 ---
 
@@ -1070,7 +908,7 @@ The `[hotkeys]` section is informational only. You must add bindings to Hyprland
 
 ```bash
 # Edit Hyprland config
-nano ~/.config/hypr/hyprland.conf
+nvim ~/.config/hypr/hyprland.conf
 
 # Add bindings:
 bind = SUPER, Print, exec, hyprshot-rs -m window
@@ -1087,10 +925,3 @@ hyprctl reload
 
 - [CLI Reference](CLI.md) - Complete command-line interface documentation
 - [README.md](../README.md) - Project overview and installation guide
-- [TODO.md](../TODO.md) - Development roadmap and features
-
----
-
-**Configuration Version:** 1.0  
-**Last Updated:** 2025  
-**hyprshot-rs Version:** 0.1.3

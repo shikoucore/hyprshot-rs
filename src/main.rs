@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::Local;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use std::path::PathBuf;
 use std::process::Command;
 use std::thread::sleep;
@@ -22,6 +22,16 @@ struct Args {
     #[arg(
         short = 'm',
         long,
+        value_parser = clap::builder::ValueParser::new(
+            |s: &str| -> std::result::Result<Mode, String> {
+            match s.to_ascii_lowercase().as_str() {
+                "output" => Ok(Mode::Output),
+                "window" => Ok(Mode::Window),
+                "region" => Ok(Mode::Region),
+                "active" => Ok(Mode::Active),
+                _ => Ok(Mode::OutputName(s.to_string())),
+            }
+        }),
         help = "Mode: output, window, region, active, or OUTPUT_NAME"
     )]
     mode: Vec<Mode>,
@@ -117,14 +127,12 @@ impl std::fmt::Debug for Args {
     }
 }
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug)]
 enum Mode {
     Output,
     Window,
     Region,
     Active,
-    #[clap(skip)]
-    #[allow(dead_code)]
     OutputName(String),
 }
 
@@ -190,6 +198,8 @@ fn main() -> Result<()> {
             Mode::OutputName(name) => {
                 if utils::is_valid_monitor(&name)? {
                     selected_monitor = Some(name);
+                } else {
+                    return Err(anyhow::anyhow!("Unknown output name: {}", name));
                 }
             }
         }
@@ -723,11 +733,11 @@ Options:
   -o, --output-folder       directory in which to save screenshot
   -f, --filename            the file name of the resulting screenshot
   -D, --delay               how long to delay taking the screenshot after selection (seconds)
-  -z, --freeze              freeze the screen on initialization
+  --freeze                  freeze the screen on initialization
   -d, --debug               print debug information
   -s, --silent              don't send notification when screenshot is saved
   -r, --raw                 output raw image data to stdout
-  -t, --notif-timeout       notification timeout in milliseconds (default 5000)
+  -n, --notif-timeout       notification timeout in milliseconds (default 5000)
   --clipboard-only          copy screenshot to clipboard and don't save image in disk
   --no-config               don't load config file (use defaults and CLI args only)
   -- [command]              open screenshot with a command of your choosing. e.g. hyprshot-rs -m window -- mirage
