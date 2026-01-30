@@ -65,7 +65,7 @@ The AUR package is the primary distribution channel: the newest releases and exp
 
 **Optional:**
 
-- `hyprpicker` - for screen freeze functionality (`--freeze` flag)
+- No extra tools required for `--freeze`
 
 On Arch Linux:
 

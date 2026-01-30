@@ -2,7 +2,6 @@ use anyhow::{Context, Result};
 use chrono::Local;
 use clap::Parser;
 use std::path::PathBuf;
-use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -10,6 +9,7 @@ mod capture;
 mod config;
 #[cfg(target_os = "linux")]
 mod embedded_slurp;
+mod freeze;
 mod save;
 mod utils;
 
@@ -269,14 +269,8 @@ fn main() -> Result<()> {
         eprintln!("Saving in: {}", save_fullpath.display());
     }
 
-    let hyprpicker_pid = if freeze && Command::new("hyprpicker").output().is_ok() {
-        let pid = Command::new("hyprpicker")
-            .args(["-r", "-z"])
-            .spawn()
-            .context("Failed to start hyprpicker")?
-            .id();
-        sleep(Duration::from_millis(200));
-        Some(pid)
+    let freeze_guard: Option<freeze::FreezeGuard> = if freeze {
+        Some(freeze::start_freeze(selected_monitor.as_deref(), debug)?)
     } else {
         None
     };
@@ -318,11 +312,8 @@ fn main() -> Result<()> {
         debug,
     )?;
 
-    if let Some(pid) = hyprpicker_pid {
-        Command::new("kill")
-            .arg(pid.to_string())
-            .status()
-            .context("Failed to kill hyprpicker")?;
+    if let Some(guard) = freeze_guard {
+        guard.stop()?;
     }
 
     Ok(())
