@@ -5,7 +5,6 @@ mod imp {
     use super::*;
     use grim_rs::Grim;
     use std::{
-        collections::HashMap,
         os::fd::{AsRawFd, BorrowedFd},
         sync::mpsc,
         thread,
@@ -18,6 +17,7 @@ mod imp {
             wl_compositor::WlCompositor,
             wl_output::Mode as WlOutputMode,
             wl_output::WlOutput,
+            wl_region::WlRegion,
             wl_registry::WlRegistry,
             wl_shm::{self, WlShm},
             wl_shm_pool::WlShmPool,
@@ -59,102 +59,44 @@ mod imp {
     }
 
     #[derive(Clone)]
-    struct CaptureImage {
+    struct GrimOutputMeta {
         name: String,
         geom: (i32, i32, i32, i32),
+    }
+
+    struct CaptureImage {
         data: Vec<u8>,
         width: u32,
         height: u32,
-        scale: i32,
     }
 
     pub fn start_freeze(selected_output: Option<&str>, debug: bool) -> Result<FreezeGuard> {
-        let captures = match capture_outputs(selected_output, debug) {
-            Ok(captures) => captures,
-            Err(err) if is_missing_screencopy(&err) => {
-                // FIXME: нужно проверить поддержку wlr-screencopy на Hyprland/Sway/River/Wayfire.
-                eprintln!(
-                    "Freeze is disabled: compositor does not support wlr-screencopy. \
-Check the support for this protocol on Hyprland/Sway/River/Wayfire."
-                );
-                let (stop_tx, _stop_rx) = mpsc::channel();
-                return Ok(FreezeGuard {
-                    stop_tx,
-                    join: None,
-                });
-            }
-            Err(err) => return Err(err),
-        };
-
         let (stop_tx, stop_rx) = mpsc::channel();
         let (ready_tx, ready_rx) = mpsc::channel();
 
-        let join = thread::spawn(move || run_freeze(captures, stop_rx, ready_tx, debug));
+        let selected_output = selected_output.map(str::to_string);
+        let join = thread::spawn(move || run_freeze(selected_output, stop_rx, ready_tx, debug));
 
         match ready_rx.recv_timeout(Duration::from_secs(2)) {
             Ok(Ok(())) => Ok(FreezeGuard {
                 stop_tx,
                 join: Some(join),
             }),
-            Ok(Err(err)) => Err(err),
-            Err(_) => Err(anyhow::anyhow!("Freeze overlay initialization timed out")),
-        }
-    }
-
-    fn capture_outputs(selected_output: Option<&str>, debug: bool) -> Result<Vec<CaptureImage>> {
-        let mut grim = Grim::new().context("Failed to initialize grim-rs")?;
-        let outputs = grim.get_outputs().context("Failed to list outputs")?;
-
-        let targets: Vec<_> = if let Some(name) = selected_output {
-            let matched: Vec<_> = outputs.iter().filter(|o| o.name() == name).collect();
-            if matched.is_empty() {
-                return Err(anyhow::anyhow!("Output '{}' not found", name));
+            Ok(Err(err)) => {
+                eprintln!("Freeze отключен: {}", err);
+                Ok(FreezeGuard {
+                    stop_tx,
+                    join: None,
+                })
             }
-            matched
-        } else {
-            outputs.iter().collect()
-        };
-
-        let mut captures = Vec::new();
-        for output in targets {
-            let name = output.name().to_string();
-            let scale = output.scale().max(1);
-            let geometry = output.geometry();
-            let capture = grim
-                .capture_output(&name)
-                .with_context(|| format!("Failed to capture output '{}'", name))?;
-
-            if debug {
-                eprintln!(
-                    "Freeze capture: {} ({}x{})",
-                    name,
-                    capture.width(),
-                    capture.height()
-                );
+            Err(_) => {
+                eprintln!("Freeze отключен: не удалось инициализировать overlay (timeout).");
+                Ok(FreezeGuard {
+                    stop_tx,
+                    join: None,
+                })
             }
-
-            let width = capture.width();
-            let height = capture.height();
-            captures.push(CaptureImage {
-                name,
-                geom: (
-                    geometry.x(),
-                    geometry.y(),
-                    geometry.width(),
-                    geometry.height(),
-                ),
-                data: capture.into_data(),
-                width,
-                height,
-                scale,
-            });
         }
-
-        if captures.is_empty() {
-            return Err(anyhow::anyhow!("No outputs available for freeze"));
-        }
-
-        Ok(captures)
     }
 
     #[derive(Debug)]
@@ -182,6 +124,7 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
         surface: WlSurface,
         layer_surface: ZwlrLayerSurfaceV1,
         buffer: WlBuffer,
+        _input_region: WlRegion,
         _tmp: tempfile::NamedTempFile,
         _mmap: memmap2::MmapMut,
         configured: bool,
@@ -415,6 +358,18 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
         }
     }
 
+    impl Dispatch<WlRegion, ()> for State {
+        fn event(
+            _: &mut Self,
+            _: &WlRegion,
+            _: wayland_client::protocol::wl_region::Event,
+            _: &(),
+            _: &Connection,
+            _: &QueueHandle<Self>,
+        ) {
+        }
+    }
+
     impl Dispatch<ZwlrLayerShellV1, ()> for State {
         fn event(
             _: &mut Self,
@@ -440,7 +395,7 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
     }
 
     fn run_freeze(
-        captures: Vec<CaptureImage>,
+        selected_output: Option<String>,
         stop_rx: mpsc::Receiver<()>,
         ready_tx: mpsc::Sender<Result<()>>,
         debug: bool,
@@ -489,31 +444,73 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             return Ok(());
         };
 
-        let capture_by_name: HashMap<&str, &CaptureImage> =
-            captures.iter().map(|c| (c.name.as_str(), c)).collect();
-
-        for output in &state.outputs {
-            let capture = if let Some(name) = output.name.as_deref() {
-                capture_by_name.get(name).copied()
-            } else {
-                None
+        let mut grim = match Grim::new() {
+            Ok(grim) => grim,
+            Err(err) if is_missing_screencopy_msg(&err.to_string()) => {
+                // FIXME: нужно проверить поддержку wlr-screencopy на Hyprland/Sway/River/Wayfire.
+                eprintln!(
+                    "Freeze is disabled: compositor does not support wlr-screencopy. \
+        Check the support for this protocol on Hyprland/Sway/River/Wayfire."
+                );
+                let _ = ready_tx.send(Ok(()));
+                return Ok(());
             }
-            .or_else(|| {
-                output_geometry(output).and_then(|geom| {
-                    captures
-                        .iter()
-                        .find(|capture| geometry_close(capture.geom, geom))
-                })
-            });
+            Err(err) => {
+                let _ = ready_tx.send(Err(err.into()));
+                return Ok(());
+            }
+        };
 
-            let Some(capture) = capture else {
-                if debug {
-                    eprintln!(
-                        "Freeze: output '{}' не сопоставлен с захватом",
-                        output.name.as_deref().unwrap_or("<unknown>")
-                    );
-                }
+        let grim_outputs = grim
+            .get_outputs()
+            .context("Failed to list outputs via grim-rs")?;
+        let mut metas = Vec::new();
+        for output in grim_outputs {
+            metas.push(GrimOutputMeta {
+                name: output.name().to_string(),
+                geom: (
+                    output.geometry().x(),
+                    output.geometry().y(),
+                    output.geometry().width(),
+                    output.geometry().height(),
+                ),
+            });
+        }
+
+        let mapping = match_outputs(&state.outputs, &metas, selected_output.as_deref())?;
+        if mapping.iter().all(|m| m.is_none()) {
+            let _ = ready_tx.send(Err(anyhow::anyhow!(
+                "No matching outputs found for freeze overlay"
+            )));
+            return Ok(());
+        }
+
+        for (idx, meta_index) in mapping.into_iter().enumerate() {
+            let Some(meta_index) = meta_index else {
                 continue;
+            };
+            let output = &state.outputs[idx];
+            let meta = &metas[meta_index];
+
+            let capture = grim
+                .capture_output(&meta.name)
+                .with_context(|| format!("Failed to capture output '{}'", meta.name))?;
+
+            if debug {
+                eprintln!(
+                    "Freeze capture: {} ({}x{})",
+                    meta.name,
+                    capture.width(),
+                    capture.height()
+                );
+            }
+
+            let width = capture.width();
+            let height = capture.height();
+            let capture = CaptureImage {
+                data: capture.into_data(),
+                width,
+                height,
             };
 
             let surface_idx = state.surfaces.len();
@@ -531,16 +528,26 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             layer_surface.set_keyboard_interactivity(KeyboardInteractivity::None);
             layer_surface.set_exclusive_zone(-1);
 
-            if capture.scale > 1 {
-                surface.set_buffer_scale(capture.scale);
+            if let Some((logical_w, logical_h)) = output_logical_size(output) {
+                if logical_w > 0 && logical_h > 0 {
+                    layer_surface.set_size(logical_w as u32, logical_h as u32);
+                }
             }
+
+            let buffer_scale = output_buffer_scale(output);
+            if buffer_scale > 1 {
+                surface.set_buffer_scale(buffer_scale);
+            }
+
+            let input_region = compositor.create_region(&qh, ());
+            surface.set_input_region(Some(&input_region));
 
             surface.commit();
 
-            let (buffer, tmp, mmap) = create_buffer(shm, &qh, capture).with_context(|| {
+            let (buffer, tmp, mmap) = create_buffer(shm, &qh, &capture).with_context(|| {
                 format!(
                     "Failed to create buffer for output '{}'",
-                    output.name.as_deref().unwrap_or("<unknown>")
+                    output.name.as_deref().unwrap_or(&meta.name)
                 )
             })?;
 
@@ -548,6 +555,7 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
                 surface,
                 layer_surface,
                 buffer,
+                _input_region: input_region,
                 _tmp: tmp,
                 _mmap: mmap,
                 configured: false,
@@ -637,23 +645,24 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
         Ok((buffer, tmp_file, mmap))
     }
 
+    fn output_logical_size(output: &OutputEntry) -> Option<(i32, i32)> {
+        if let (Some(width), Some(height)) = (output.logical_width, output.logical_height) {
+            return Some((width, height));
+        }
+
+        let mode_width = output.mode_width?;
+        let mode_height = output.mode_height?;
+        let scale = output.scale.max(1);
+        Some((
+            ((mode_width as f64) / (scale as f64)).round() as i32,
+            ((mode_height as f64) / (scale as f64)).round() as i32,
+        ))
+    }
+
     fn output_geometry(output: &OutputEntry) -> Option<(i32, i32, i32, i32)> {
         let x = output.logical_x.or(output.pos_x)?;
         let y = output.logical_y.or(output.pos_y)?;
-        let width = if let Some(width) = output.logical_width {
-            width
-        } else {
-            let mode_width = output.mode_width?;
-            let scale = output.scale.max(1);
-            ((mode_width as f64) / (scale as f64)).round() as i32
-        };
-        let height = if let Some(height) = output.logical_height {
-            height
-        } else {
-            let mode_height = output.mode_height?;
-            let scale = output.scale.max(1);
-            ((mode_height as f64) / (scale as f64)).round() as i32
-        };
+        let (width, height) = output_logical_size(output)?;
         Some((x, y, width, height))
     }
 
@@ -665,8 +674,112 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
         close(a.0, b.0) && close(a.1, b.1) && close(a.2, b.2) && close(a.3, b.3)
     }
 
-    fn is_missing_screencopy(err: &anyhow::Error) -> bool {
-        let msg = err.to_string().to_ascii_lowercase();
+    fn output_buffer_scale(output: &OutputEntry) -> i32 {
+        if let (Some(mode_width), Some(logical_width)) = (output.mode_width, output.logical_width) {
+            if logical_width > 0 {
+                let scale = (mode_width as f64) / (logical_width as f64);
+                if (scale - scale.round()).abs() < 0.01 {
+                    return scale.round().max(1.0) as i32;
+                }
+                return 1;
+            }
+        }
+        output.scale.max(1)
+    }
+
+    fn match_outputs(
+        outputs: &[OutputEntry],
+        metas: &[GrimOutputMeta],
+        selected_output: Option<&str>,
+    ) -> Result<Vec<Option<usize>>> {
+        let mut mapping = vec![None; outputs.len()];
+        let mut used = vec![false; metas.len()];
+
+        if let Some(selected) = selected_output {
+            let meta_index = metas
+                .iter()
+                .position(|meta| meta.name == selected)
+                .context(format!("Output '{}' not found", selected))?;
+
+            if let Some((idx, _)) = outputs
+                .iter()
+                .enumerate()
+                .find(|(_, o)| o.name.as_deref() == Some(selected))
+            {
+                mapping[idx] = Some(meta_index);
+                used[meta_index] = true;
+                return Ok(mapping);
+            }
+
+            let target_geom = metas[meta_index].geom;
+            if let Some((idx, _)) = outputs.iter().enumerate().find(|(_, o)| {
+                output_geometry(o)
+                    .map(|geom| geometry_close(geom, target_geom))
+                    .unwrap_or(false)
+            }) {
+                mapping[idx] = Some(meta_index);
+                used[meta_index] = true;
+                return Ok(mapping);
+            }
+
+            if !outputs.is_empty() {
+                mapping[0] = Some(meta_index);
+                used[meta_index] = true;
+            }
+
+            return Ok(mapping);
+        }
+
+        for (idx, output) in outputs.iter().enumerate() {
+            let Some(name) = output.name.as_deref() else {
+                continue;
+            };
+            if let Some((meta_idx, _)) = metas
+                .iter()
+                .enumerate()
+                .find(|(m_idx, meta)| !used[*m_idx] && meta.name == name)
+            {
+                mapping[idx] = Some(meta_idx);
+                used[meta_idx] = true;
+            }
+        }
+
+        for (idx, output) in outputs.iter().enumerate() {
+            if mapping[idx].is_some() {
+                continue;
+            }
+            let Some(geom) = output_geometry(output) else {
+                continue;
+            };
+            if let Some((meta_idx, _)) = metas
+                .iter()
+                .enumerate()
+                .find(|(m_idx, meta)| !used[*m_idx] && geometry_close(meta.geom, geom))
+            {
+                mapping[idx] = Some(meta_idx);
+                used[meta_idx] = true;
+            }
+        }
+
+        let mut unused = metas
+            .iter()
+            .enumerate()
+            .filter(|(idx, _)| !used[*idx])
+            .map(|(idx, _)| idx);
+
+        for idx in 0..outputs.len() {
+            if mapping[idx].is_none() {
+                if let Some(meta_idx) = unused.next() {
+                    mapping[idx] = Some(meta_idx);
+                }
+            }
+        }
+
+        Ok(mapping)
+    }
+
+    fn is_missing_screencopy_msg(msg: &str) -> bool {
+        let msg = msg.to_ascii_lowercase();
         msg.contains("screencopy") || msg.contains("wlr-screencopy")
     }
 }
