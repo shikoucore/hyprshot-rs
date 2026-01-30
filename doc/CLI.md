@@ -59,6 +59,8 @@ hyprctl monitors
 | `--delay`  | `-D`  | Delay before capture (seconds) | `-D 3`     |
 | `--freeze` |       | Freeze screen during selection | `--freeze` |
 
+Note: `--freeze` does not require extra tools. If the compositor doesn't support freeze, it will be skipped.
+
 ### Notification Options
 
 | Option            | Short | Description               | Example   |

@@ -393,7 +393,7 @@ freeze_on_region = false   # Live screen during selection
 ```
 
 When `true`:
-- Screen is frozen using `hyprpicker --autocopy --format hex --no-fancy`
+- Screen is frozen using a native Wayland layer-shell overlay
 - Easier to select moving content
 - Same as using `--freeze` flag
 
@@ -402,7 +402,7 @@ When `false`:
 - Shows real-time updates
 - Better for capturing animations
 
-**Requirements:** This feature requires `hyprpicker` to be installed.
+**Requirements:** No extra tools required. If the compositor doesn't support freeze, it will be skipped.
 
 #### CLI Examples
 
