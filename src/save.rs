@@ -60,17 +60,23 @@ pub fn save_geometry_with_grim(
             save_fullpath.display()
         ))?;
 
-        let wl_copy_status = Command::new("wl-copy")
-            .arg("--type")
-            .arg("image/png")
-            .stdin(std::fs::File::open(save_fullpath).context(format!(
-                "Failed to open screenshot file '{}'",
-                save_fullpath.display()
-            ))?)
-            .status()
-            .context("Failed to run wl-copy")?;
-        if !wl_copy_status.success() {
-            return Err(anyhow::anyhow!("wl-copy failed to copy screenshot"));
+        let wl_copy_result = (|| -> Result<()> {
+            let wl_copy_status = Command::new("wl-copy")
+                .arg("--type")
+                .arg("image/png")
+                .stdin(std::fs::File::open(save_fullpath).context(format!(
+                    "Failed to open screenshot file '{}'",
+                    save_fullpath.display()
+                ))?)
+                .status()
+                .context("Failed to run wl-copy")?;
+            if !wl_copy_status.success() {
+                return Err(anyhow::anyhow!("wl-copy failed to copy screenshot"));
+            }
+            Ok(())
+        })();
+        if let Err(err) = wl_copy_result {
+            eprintln!("Warning: failed to copy screenshot to clipboard: {}", err);
         }
 
         if let Some(cmd) = command {
@@ -119,14 +125,16 @@ pub fn save_geometry_with_grim(
                 save_fullpath.display()
             )
         };
-        Notification::new()
+        if let Err(err) = Notification::new()
             .summary("Screenshot saved")
             .body(&message)
             .icon(save_fullpath.to_str().unwrap_or("screenshot"))
             .timeout(notif_timeout as i32)
             .appname("Hyprshot-rs")
             .show()
-            .context("Failed to show notification")?;
+        {
+            eprintln!("Warning: failed to show notification: {}", err);
+        }
     }
 
     Ok(())
@@ -313,17 +321,23 @@ pub fn save_geometry_with_native(
             save_fullpath.display()
         ))?;
 
-        let wl_copy_status = Command::new("wl-copy")
-            .arg("--type")
-            .arg("image/png")
-            .stdin(std::fs::File::open(save_fullpath).context(format!(
-                "Failed to open screenshot file '{}'",
-                save_fullpath.display()
-            ))?)
-            .status()
-            .context("Failed to run wl-copy")?;
-        if !wl_copy_status.success() {
-            return Err(anyhow::anyhow!("wl-copy failed to copy screenshot"));
+        let wl_copy_result = (|| -> Result<()> {
+            let wl_copy_status = Command::new("wl-copy")
+                .arg("--type")
+                .arg("image/png")
+                .stdin(std::fs::File::open(save_fullpath).context(format!(
+                    "Failed to open screenshot file '{}'",
+                    save_fullpath.display()
+                ))?)
+                .status()
+                .context("Failed to run wl-copy")?;
+            if !wl_copy_status.success() {
+                return Err(anyhow::anyhow!("wl-copy failed to copy screenshot"));
+            }
+            Ok(())
+        })();
+        if let Err(err) = wl_copy_result {
+            eprintln!("Warning: failed to copy screenshot to clipboard: {}", err);
         }
 
         if let Some(cmd) = command {
@@ -372,14 +386,16 @@ pub fn save_geometry_with_native(
                 save_fullpath.display()
             )
         };
-        Notification::new()
+        if let Err(err) = Notification::new()
             .summary("Screenshot saved")
             .body(&message)
             .icon(save_fullpath.to_str().unwrap_or("screenshot"))
             .timeout(notif_timeout as i32)
             .appname("Hyprshot-rs")
             .show()
-            .context("Failed to show notification")?;
+        {
+            eprintln!("Warning: failed to show notification: {}", err);
+        }
     }
 
     Ok(())

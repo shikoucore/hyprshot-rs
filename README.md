@@ -12,7 +12,7 @@
 
 [CHANGELOG](/CHANGELOG.md)
 
-A utility to easily take screenshots in Hyprland using your mouse.
+A utility to easily take screenshots on Wayland (tested on Hyprland and Sway).
 
 ## Features
 
@@ -23,7 +23,7 @@ A utility to easily take screenshots in Hyprland using your mouse.
   - Capturing the selected window
   - Capture of the active window
 - **Save & Clipboard**
-  - Save screenshots to a specified folder or copy to clipboard
+  - Save screenshots to a specified folder and copy to clipboard (use `--clipboard-only` for clipboard-only)
   - Screenshots saved in PNG format
 - **Configuration System**
   - TOML-based configuration (`~/.config/hyprshot-rs/config.toml`)
@@ -61,13 +61,13 @@ The AUR package is the primary distribution channel: the newest releases and exp
 **Required:**
 
 - `wl-clipboard` - for clipboard operations
-- `hyprland` - the compositor
+- a Wayland compositor (Hyprland or Sway)
 
 **Optional:**
 
 - No extra tools required for `--freeze`
 
-On Arch Linux:
+On Arch Linux (example):
 
 ```bash
 sudo pacman -S wl-clipboard hyprland
@@ -132,6 +132,8 @@ hyprshot-rs -m window -m active
 ```bash
 hyprshot-rs -m output -m DP-1
 ```
+
+Use your compositor to list output names (Hyprland: `hyprctl monitors`).
 
 - Take a screenshot of a selected area and save it in the current directory:
   ~/repository

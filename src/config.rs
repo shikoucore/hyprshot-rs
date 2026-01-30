@@ -59,11 +59,6 @@ pub struct CaptureConfig {
     #[serde(default = "default_format")]
     pub default_format: String,
 
-    /// Automatically copy screenshot to clipboard
-    /// Default: false
-    #[serde(default)]
-    pub clipboard_on_capture: bool,
-
     /// Show notifications after capture
     /// Default: true
     #[serde(default = "default_notification")]
@@ -149,7 +144,6 @@ impl Default for CaptureConfig {
     fn default() -> Self {
         Self {
             default_format: default_format(),
-            clipboard_on_capture: false,
             notification: default_notification(),
             notification_timeout: default_notification_timeout(),
         }

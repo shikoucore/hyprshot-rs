@@ -2,19 +2,6 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::process::Command;
 
-pub fn is_valid_monitor(name: &str) -> Result<bool> {
-    let output = Command::new("hyprctl")
-        .arg("monitors")
-        .arg("-j")
-        .output()
-        .context("Failed to run hyprctl monitors")?;
-    let monitors: Value = serde_json::from_slice(&output.stdout)?;
-    Ok(monitors
-        .as_array()
-        .map(|arr| arr.iter().any(|m| m["name"].as_str() == Some(name)))
-        .unwrap_or(false))
-}
-
 pub fn trim(geometry: &str, debug: bool) -> Result<String> {
     if debug {
         eprintln!("Input geometry: {}", geometry);

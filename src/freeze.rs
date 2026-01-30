@@ -528,10 +528,11 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             layer_surface.set_keyboard_interactivity(KeyboardInteractivity::None);
             layer_surface.set_exclusive_zone(-1);
 
-            if let Some((logical_w, logical_h)) = output_logical_size(output) {
-                if logical_w > 0 && logical_h > 0 {
-                    layer_surface.set_size(logical_w as u32, logical_h as u32);
-                }
+            if let Some((logical_w, logical_h)) = output_logical_size(output)
+                && logical_w > 0
+                && logical_h > 0
+            {
+                layer_surface.set_size(logical_w as u32, logical_h as u32);
             }
 
             let buffer_scale = output_buffer_scale(output);
@@ -675,14 +676,14 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
     }
 
     fn output_buffer_scale(output: &OutputEntry) -> i32 {
-        if let (Some(mode_width), Some(logical_width)) = (output.mode_width, output.logical_width) {
-            if logical_width > 0 {
-                let scale = (mode_width as f64) / (logical_width as f64);
-                if (scale - scale.round()).abs() < 0.01 {
-                    return scale.round().max(1.0) as i32;
-                }
-                return 1;
+        if let (Some(mode_width), Some(logical_width)) = (output.mode_width, output.logical_width)
+            && logical_width > 0
+        {
+            let scale = (mode_width as f64) / (logical_width as f64);
+            if (scale - scale.round()).abs() < 0.01 {
+                return scale.round().max(1.0) as i32;
             }
+            return 1;
         }
         output.scale.max(1)
     }
@@ -767,11 +768,11 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             .filter(|(idx, _)| !used[*idx])
             .map(|(idx, _)| idx);
 
-        for idx in 0..outputs.len() {
-            if mapping[idx].is_none() {
-                if let Some(meta_idx) = unused.next() {
-                    mapping[idx] = Some(meta_idx);
-                }
+        for slot in mapping.iter_mut().take(outputs.len()) {
+            if slot.is_none()
+                && let Some(meta_idx) = unused.next()
+            {
+                *slot = Some(meta_idx);
             }
         }
 

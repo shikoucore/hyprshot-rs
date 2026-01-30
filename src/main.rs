@@ -57,13 +57,8 @@ struct Args {
     #[arg(short, long, help = "Output raw image data to stdout")]
     raw: bool,
 
-    #[arg(
-        short,
-        long,
-        default_value = "5000",
-        help = "Notification timeout (ms)"
-    )]
-    notif_timeout: u32,
+    #[arg(short, long, help = "Notification timeout (ms)")]
+    notif_timeout: Option<u32>,
 
     #[arg(long, help = "Copy to clipboard and don't save to disk")]
     clipboard_only: bool,
@@ -196,11 +191,7 @@ fn main() -> Result<()> {
                 current = true;
             }
             Mode::OutputName(name) => {
-                if utils::is_valid_monitor(&name)? {
-                    selected_monitor = Some(name);
-                } else {
-                    return Err(anyhow::anyhow!("Unknown output name: {}", name));
-                }
+                selected_monitor = Some(name);
             }
         }
     }
@@ -230,11 +221,9 @@ fn main() -> Result<()> {
         !config.capture.notification
     };
 
-    let notif_timeout = if args.notif_timeout != 5000 {
-        args.notif_timeout
-    } else {
-        config.capture.notification_timeout
-    };
+    let notif_timeout = args
+        .notif_timeout
+        .unwrap_or(config.capture.notification_timeout);
 
     let freeze = if args.freeze {
         true
@@ -243,11 +232,11 @@ fn main() -> Result<()> {
     };
 
     let delay = if let Some(d) = args.delay {
-        d
+        Duration::from_secs(d)
     } else if config.advanced.delay_ms > 0 {
-        config.advanced.delay_ms.div_ceil(1000) as u64
+        Duration::from_millis(config.advanced.delay_ms as u64)
     } else {
-        0u64
+        Duration::from_secs(0)
     };
 
     let save_dir = config::get_screenshots_dir(args.output_folder.clone(), &config, debug)?;
@@ -275,8 +264,8 @@ fn main() -> Result<()> {
         None
     };
 
-    if delay > 0 {
-        sleep(Duration::from_secs(delay));
+    if delay > Duration::from_secs(0) {
+        sleep(delay);
     }
 
     let geometry = match option {
@@ -432,10 +421,6 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
             }
             config.capture.default_format = value.to_string();
         }
-        ("capture", "clipboard_on_capture") => {
-            config.capture.clipboard_on_capture =
-                value.parse().context("Value must be 'true' or 'false'")?;
-        }
         ("capture", "notification") => {
             config.capture.notification =
                 value.parse().context("Value must be 'true' or 'false'")?;
@@ -469,7 +454,6 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
                    - hotkeys.active_output\n\
                  Capture:\n\
                    - capture.default_format (png, jpeg, ppm)\n\
-                   - capture.clipboard_on_capture (true, false)\n\
                    - capture.notification (true, false)\n\
                    - capture.notification_timeout (milliseconds)\n\
                  Advanced:\n\
