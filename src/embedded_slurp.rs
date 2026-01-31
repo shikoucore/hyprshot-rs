@@ -84,7 +84,9 @@ fn hash_file(path: &Path) -> Result<u64> {
     let mut hasher = DefaultHasher::new();
     let mut buffer = [0u8; 8192];
     loop {
-        let read = file.read(&mut buffer).context("Failed to read slurp binary")?;
+        let read = file
+            .read(&mut buffer)
+            .context("Failed to read slurp binary")?;
         if read == 0 {
             break;
         }

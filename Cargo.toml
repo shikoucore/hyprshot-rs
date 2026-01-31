@@ -50,14 +50,9 @@ version = "0.3"
 optional = true
 features = ["client"]
 
-[dependencies.image]
-version = "0.25"
-optional = true
-
 [features]
 default = ["grim", "freeze"]
 grim = ["grim-rs"]
-native = ["wayland-client", "wayland-protocols", "image"]
 freeze = [
   "grim-rs",
   "wayland-client",

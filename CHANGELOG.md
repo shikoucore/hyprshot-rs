@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Freeze robustness**: Gracefully disables freeze if required Wayland protocols are missing (with clear user message).
 - **Freeze input handling**: Overlay is input-transparent to avoid blocking selection.
 - **Freeze scaling**: Better handling of fractional scaling and logical output sizes.
+- **Region guidance**: Clearer prompt when region selection is cancelled or not drawn.
 - **More reliable saves**: Clipboard/notification errors no longer break successful captures (except `--clipboard-only`).
 - **Delay accuracy**: `delay_ms` now respects milliseconds instead of rounding to seconds.
 - **Notification timeout**: `--notif-timeout` always respects the value you pass (including 5000).

@@ -62,7 +62,10 @@ fn main() {
                             if let Err(err) = std::fs::copy(&slurp_binary, &target_binary) {
                                 eprintln!("Warning: failed to copy slurp binary: {}", err);
                             } else {
-                                println!("Slurp built successfully at: {}", target_binary.display());
+                                println!(
+                                    "Slurp built successfully at: {}",
+                                    target_binary.display()
+                                );
                                 embedded = true;
                                 slurp_path = Some(target_binary);
                             }

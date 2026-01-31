@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use chrono::Local;
 use clap::Parser;
+use notify_rust::Notification;
 use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
@@ -282,7 +283,20 @@ fn main() -> Result<()> {
                 capture::grab_output(debug)?
             }
         }
-        Mode::Region => capture::grab_region(debug)?,
+        Mode::Region => match capture::grab_region(debug) {
+            Ok(geo) => geo,
+            Err(err) => {
+                if !silent && err.to_string().contains("slurp failed to select region") {
+                    let _ = Notification::new()
+                        .summary("Region mode")
+                        .body("Drag to select an area (not a window/output).")
+                        .appname("Hyprshot-rs")
+                        .timeout(notif_timeout as i32)
+                        .show();
+                }
+                return Err(err);
+            }
+        },
         Mode::Window => {
             let geo = if current {
                 capture::grab_active_window(debug)?
