@@ -248,9 +248,12 @@ fn main() -> Result<()> {
     };
 
     let filename = args.filename.unwrap_or_else(|| {
-        Local::now()
-            .format("%Y-%m-%d-%H%M%S_hyprshot.png")
-            .to_string()
+        let now = Local::now();
+        format!(
+            "{}-{:03}_hyprshot.png",
+            now.format("%Y-%m-%d-%H%M%S"),
+            now.timestamp_subsec_millis()
+        )
     });
     let save_fullpath = save_dir.join(&filename);
 
@@ -412,15 +415,6 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
         }
 
         // [capture] section
-        ("capture", "default_format") => {
-            if !["png", "jpeg", "ppm"].contains(&value) {
-                return Err(anyhow::anyhow!(
-                    "Invalid format '{}'. Must be one of: png, jpeg, ppm",
-                    value
-                ));
-            }
-            config.capture.default_format = value.to_string();
-        }
         ("capture", "notification") => {
             config.capture.notification =
                 value.parse().context("Value must be 'true' or 'false'")?;
@@ -453,7 +447,6 @@ fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Resu
                    - hotkeys.output\n\
                    - hotkeys.active_output\n\
                  Capture:\n\
-                   - capture.default_format (png, jpeg, ppm)\n\
                    - capture.notification (true, false)\n\
                    - capture.notification_timeout (milliseconds)\n\
                  Advanced:\n\

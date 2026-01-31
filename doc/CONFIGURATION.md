@@ -44,7 +44,6 @@ output = "SUPER CTRL, Print"
 active_output = ", Print"
 
 [capture]
-default_format = "png"
 notification = true
 notification_timeout = 3000
 
@@ -82,11 +81,6 @@ They do not change runtime behavior by themselves.
 For working examples, see `doc/HOTKEYS.md`.
 
 ## Section: Capture
-
-### `default_format`
-
-- Stored in config but **currently ignored**.
-- Output is always PNG.
 
 ### `notification`
 

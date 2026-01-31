@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use notify_rust::Notification;
-use std::fs::create_dir_all;
+use std::fs::{create_dir_all, write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
@@ -33,14 +33,15 @@ pub fn save_geometry_with_grim(
         .capture_region(region)
         .context("Failed to capture screenshot region")?;
 
+    let png_bytes = grim
+        .to_png(
+            capture_result.data(),
+            capture_result.width(),
+            capture_result.height(),
+        )
+        .context("Failed to encode screenshot as PNG")?;
+
     if raw {
-        let png_bytes = grim
-            .to_png(
-                capture_result.data(),
-                capture_result.width(),
-                capture_result.height(),
-            )
-            .context("Failed to encode screenshot as PNG")?;
         std::io::stdout().write_all(&png_bytes)?;
         return Ok(());
     }
@@ -49,28 +50,26 @@ pub fn save_geometry_with_grim(
         create_dir_all(save_fullpath.parent().unwrap())
             .context("Failed to create screenshot directory")?;
 
-        grim.save_png(
-            capture_result.data(),
-            capture_result.width(),
-            capture_result.height(),
-            save_fullpath,
-        )
-        .context(format!(
+        write(save_fullpath, &png_bytes).context(format!(
             "Failed to save screenshot to '{}'",
             save_fullpath.display()
         ))?;
 
         let wl_copy_result = (|| -> Result<()> {
-            let wl_copy_status = Command::new("wl-copy")
+            let mut wl_copy = Command::new("wl-copy")
                 .arg("--type")
                 .arg("image/png")
-                .stdin(std::fs::File::open(save_fullpath).context(format!(
-                    "Failed to open screenshot file '{}'",
-                    save_fullpath.display()
-                ))?)
-                .status()
-                .context("Failed to run wl-copy")?;
-            if !wl_copy_status.success() {
+                .stdin(Stdio::piped())
+                .spawn()
+                .context("Failed to start wl-copy")?;
+            wl_copy
+                .stdin
+                .as_mut()
+                .unwrap()
+                .write_all(&png_bytes)
+                .context("Failed to write to wl-copy stdin")?;
+            let status = wl_copy.wait().context("Failed to wait for wl-copy")?;
+            if !status.success() {
                 return Err(anyhow::anyhow!("wl-copy failed to copy screenshot"));
             }
             Ok(())
@@ -90,14 +89,6 @@ pub fn save_geometry_with_grim(
             }
         }
     } else {
-        let png_bytes = grim
-            .to_png(
-                capture_result.data(),
-                capture_result.width(),
-                capture_result.height(),
-            )
-            .context("Failed to encode screenshot as PNG")?;
-
         let mut wl_copy = Command::new("wl-copy")
             .arg("--type")
             .arg("image/png")
@@ -152,6 +143,7 @@ pub fn save_geometry_with_native(
     debug: bool,
 ) -> Result<()> {
     use image::{DynamicImage, ImageBuffer, Rgba};
+    use std::io::Write;
     use wayland_client::{
         Connection, Dispatch, QueueHandle,
         protocol::{wl_compositor::WlCompositor, wl_output::WlOutput, wl_shm::WlShm},
@@ -313,25 +305,37 @@ pub fn save_geometry_with_native(
         return Ok(());
     }
 
+    let mut png_bytes = Vec::new();
+    dynamic_img
+        .write_to(
+            &mut std::io::Cursor::new(&mut png_bytes),
+            image::ImageOutputFormat::Png,
+        )
+        .context("Failed to encode image to PNG")?;
+
     if !clipboard_only {
         create_dir_all(save_fullpath.parent().unwrap())
             .context("Failed to create screenshot directory")?;
-        dynamic_img.save(save_fullpath).context(format!(
+        write(save_fullpath, &png_bytes).context(format!(
             "Failed to save screenshot to '{}'",
             save_fullpath.display()
         ))?;
 
         let wl_copy_result = (|| -> Result<()> {
-            let wl_copy_status = Command::new("wl-copy")
+            let mut wl_copy = Command::new("wl-copy")
                 .arg("--type")
                 .arg("image/png")
-                .stdin(std::fs::File::open(save_fullpath).context(format!(
-                    "Failed to open screenshot file '{}'",
-                    save_fullpath.display()
-                ))?)
-                .status()
-                .context("Failed to run wl-copy")?;
-            if !wl_copy_status.success() {
+                .stdin(Stdio::piped())
+                .spawn()
+                .context("Failed to start wl-copy")?;
+            wl_copy
+                .stdin
+                .as_mut()
+                .unwrap()
+                .write_all(&png_bytes)
+                .context("Failed to write to wl-copy stdin")?;
+            let status = wl_copy.wait().context("Failed to wait for wl-copy")?;
+            if !status.success() {
                 return Err(anyhow::anyhow!("wl-copy failed to copy screenshot"));
             }
             Ok(())
@@ -351,14 +355,6 @@ pub fn save_geometry_with_native(
             }
         }
     } else {
-        let mut buffer = Vec::new();
-        dynamic_img
-            .write_to(
-                &mut std::io::Cursor::new(&mut buffer),
-                image::ImageOutputFormat::Png,
-            )
-            .context("Failed to encode image to PNG")?;
-
         let mut wl_copy = Command::new("wl-copy")
             .arg("--type")
             .arg("image/png")
@@ -369,7 +365,7 @@ pub fn save_geometry_with_native(
             .stdin
             .as_mut()
             .unwrap()
-            .write_all(&buffer)
+            .write_all(&png_bytes)
             .context("Failed to write to wl-copy stdin")?;
         let wl_copy_status = wl_copy.wait().context("Failed to wait for wl-copy")?;
         if !wl_copy_status.success() {

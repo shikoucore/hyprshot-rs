@@ -54,11 +54,6 @@ pub struct HotkeysConfig {
 /// Configuration for capture settings
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CaptureConfig {
-    /// Default format for screenshots (png, jpeg, ppm)
-    /// Default: "png"
-    #[serde(default = "default_format")]
-    pub default_format: String,
-
     /// Show notifications after capture
     /// Default: true
     #[serde(default = "default_notification")]
@@ -105,10 +100,6 @@ fn default_hotkey_active_output() -> String {
     ", Print".to_string()
 }
 
-fn default_format() -> String {
-    "png".to_string()
-}
-
 fn default_notification() -> bool {
     true
 }
@@ -143,7 +134,6 @@ impl Default for HotkeysConfig {
 impl Default for CaptureConfig {
     fn default() -> Self {
         Self {
-            default_format: default_format(),
             notification: default_notification(),
             notification_timeout: default_notification_timeout(),
         }
@@ -569,7 +559,6 @@ mod tests {
         let config = Config::default();
         assert_eq!(config.paths.screenshots_dir, "~/Pictures");
         assert_eq!(config.hotkeys.window, "SUPER, Print");
-        assert_eq!(config.capture.default_format, "png");
         assert_eq!(config.capture.notification, true);
         assert_eq!(config.capture.notification_timeout, 3000);
         assert_eq!(config.advanced.freeze_on_region, true);
@@ -597,7 +586,6 @@ mod tests {
             region = "ALT, R"
 
             [capture]
-            default_format = "jpeg"
             notification = false
 
             [advanced]
@@ -607,7 +595,6 @@ mod tests {
         let config: Config = toml::from_str(toml_str).unwrap();
         assert_eq!(config.paths.screenshots_dir, "~/Documents");
         assert_eq!(config.hotkeys.window, "ALT, W");
-        assert_eq!(config.capture.default_format, "jpeg");
         assert_eq!(config.capture.notification, false);
         assert_eq!(config.advanced.delay_ms, 500);
     }

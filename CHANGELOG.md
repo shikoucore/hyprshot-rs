@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **More reliable saves**: Clipboard/notification errors no longer break successful captures (except `--clipboard-only`).
 - **Delay accuracy**: `delay_ms` now respects milliseconds instead of rounding to seconds.
 - **Notification timeout**: `--notif-timeout` always respects the value you pass (including 5000).
+- **Filename collisions**: Reduced the chance of overwriting when taking multiple screenshots quickly.
+- **Format clarity**: PNG is the only supported format, avoiding confusing options.
+- **Clipboard performance**: Faster clipboard copy without extra disk reads.
 
 ## [release 0.1.5] 2026-01-29
 

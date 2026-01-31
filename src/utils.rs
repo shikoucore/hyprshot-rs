@@ -52,11 +52,7 @@ pub fn trim(geometry: &str, debug: bool) -> Result<String> {
 
     let mut found = false;
 
-    if let Ok(monitors_output) = Command::new("hyprctl")
-        .arg("monitors")
-        .arg("-j")
-        .output()
-    {
+    if let Ok(monitors_output) = Command::new("hyprctl").arg("monitors").arg("-j").output() {
         if let Ok(monitors) = serde_json::from_slice::<Value>(&monitors_output.stdout) {
             if let Some(monitor) = monitors.as_array().and_then(|arr| {
                 arr.iter().find(|m| {
@@ -86,10 +82,22 @@ pub fn trim(geometry: &str, debug: bool) -> Result<String> {
                 if let Some(output) = outputs.as_array().and_then(|arr| {
                     arr.iter().find(|o| {
                         let rect = o["rect"].as_object();
-                        let mx = rect.and_then(|r| r.get("x")).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        let my = rect.and_then(|r| r.get("y")).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        let mw = rect.and_then(|r| r.get("width")).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
-                        let mh = rect.and_then(|r| r.get("height")).and_then(|v| v.as_i64()).unwrap_or(0) as i32;
+                        let mx = rect
+                            .and_then(|r| r.get("x"))
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32;
+                        let my = rect
+                            .and_then(|r| r.get("y"))
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32;
+                        let mw = rect
+                            .and_then(|r| r.get("width"))
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32;
+                        let mh = rect
+                            .and_then(|r| r.get("height"))
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0) as i32;
                         x >= mx && x < mx + mw && y >= my && y < my + mh
                     })
                 }) {
