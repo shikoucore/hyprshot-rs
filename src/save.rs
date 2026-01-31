@@ -4,10 +4,12 @@ use std::fs::{create_dir_all, write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
+use crate::geometry::Geometry;
+
 #[cfg(feature = "grim")]
 #[allow(clippy::too_many_arguments)]
 pub fn save_geometry_with_grim(
-    geometry: &str,
+    geometry: &Geometry,
     save_fullpath: &PathBuf,
     clipboard_only: bool,
     raw: bool,
@@ -22,10 +24,10 @@ pub fn save_geometry_with_grim(
         eprintln!("Saving geometry with grim-rs library: {}", geometry);
     }
 
-    let region: grim_rs::Box = geometry.parse().context(format!(
-        "Failed to parse geometry '{}' into grim-rs::Box",
-        geometry
-    ))?;
+    let region: grim_rs::Box = geometry
+        .to_string()
+        .parse()
+        .context("Failed to parse geometry into grim-rs::Box")?;
 
     let mut grim = grim_rs::Grim::new().context("Failed to initialize grim-rs")?;
 
@@ -133,7 +135,7 @@ pub fn save_geometry_with_grim(
 
 #[cfg(feature = "native")]
 pub fn save_geometry_with_native(
-    geometry: &str,
+    geometry: &Geometry,
     save_fullpath: &PathBuf,
     clipboard_only: bool,
     raw: bool,
@@ -157,16 +159,10 @@ pub fn save_geometry_with_native(
         eprintln!("Saving geometry with native Wayland: {}", geometry);
     }
 
-    let parts: Vec<&str> = geometry.split(' ').collect();
-    if parts.len() != 2 {
-        return Err(anyhow::anyhow!("Invalid geometry format: '{}'", geometry));
-    }
-    let xy: Vec<&str> = parts[0].split(',').collect();
-    let wh: Vec<&str> = parts[1].split('x').collect();
-    let x: i32 = xy[0].parse().context("Invalid x coordinate")?;
-    let y: i32 = xy[1].parse().context("Invalid y coordinate")?;
-    let width: i32 = wh[0].parse().context("Invalid width")?;
-    let height: i32 = wh[1].parse().context("Invalid height")?;
+    let x = geometry.x;
+    let y = geometry.y;
+    let width = geometry.width;
+    let height = geometry.height;
 
     let conn = Connection::connect_to_env().context("Failed to connect to Wayland")?;
     let mut event_queue = conn.new_event_queue();
@@ -399,7 +395,7 @@ pub fn save_geometry_with_native(
 
 #[allow(clippy::too_many_arguments)]
 pub fn save_geometry(
-    geometry: &str,
+    geometry: &Geometry,
     save_fullpath: &PathBuf,
     clipboard_only: bool,
     raw: bool,

@@ -10,6 +10,7 @@ mod config;
 #[cfg(target_os = "linux")]
 mod embedded_slurp;
 mod freeze;
+mod geometry;
 mod save;
 mod utils;
 

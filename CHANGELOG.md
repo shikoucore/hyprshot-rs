@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Window selection**: More accurate window lists on multi‑workspace setups.
 - **Build reliability**: Slurp embedding failures no longer break builds.
 - **Embedded slurp safety**: Atomic updates with locking and integrity checks.
+- **Geometry handling**: More consistent capture processing across modes.
 
 ## [release 0.1.5] 2026-01-29
 

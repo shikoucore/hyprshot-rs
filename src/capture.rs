@@ -6,6 +6,8 @@ use std::{
     process::{Command, Stdio},
 };
 
+use crate::geometry::Geometry;
+
 #[cfg(feature = "freeze")]
 use wayland_client::{
     Connection, Dispatch, QueueHandle,
@@ -24,7 +26,7 @@ fn get_slurp_path() -> Result<std::path::PathBuf> {
     Ok(std::path::PathBuf::from("slurp"))
 }
 
-pub fn grab_output(debug: bool) -> Result<String> {
+pub fn grab_output(debug: bool) -> Result<Geometry> {
     let slurp_path = get_slurp_path()?;
 
     let output = Command::new(slurp_path)
@@ -44,14 +46,14 @@ pub fn grab_output(debug: bool) -> Result<String> {
     if geometry.is_empty() {
         return Err(anyhow::anyhow!("slurp returned empty geometry"));
     }
-    Ok(geometry)
+    geometry.parse()
 }
 
 // Support matrix:
 // - region/output: Wayland-wide via slurp
 // - output by name: Wayland enumeration (no hyprctl)
 // - window/active: Hyprland and Sway (hyprctl/swaymsg)
-pub fn grab_active_output(debug: bool) -> Result<String> {
+pub fn grab_active_output(debug: bool) -> Result<Geometry> {
     if let Ok(geometry) = grab_active_output_hyprctl(debug) {
         return Ok(geometry);
     }
@@ -64,7 +66,7 @@ pub fn grab_active_output(debug: bool) -> Result<String> {
     ))
 }
 
-fn grab_active_output_hyprctl(debug: bool) -> Result<String> {
+fn grab_active_output_hyprctl(debug: bool) -> Result<Geometry> {
     let active_workspace: Value = serde_json::from_slice(
         &Command::new("hyprctl")
             .arg("activeworkspace")
@@ -99,26 +101,25 @@ fn grab_active_output_hyprctl(debug: bool) -> Result<String> {
         eprintln!("Current output: {}", current_monitor);
     }
 
-    let x = current_monitor["x"].as_i64().unwrap_or(0);
-    let y = current_monitor["y"].as_i64().unwrap_or(0);
+    let x = current_monitor["x"].as_i64().unwrap_or(0) as i32;
+    let y = current_monitor["y"].as_i64().unwrap_or(0) as i32;
     let width = current_monitor["width"].as_i64().unwrap_or(0) as f64;
     let height = current_monitor["height"].as_i64().unwrap_or(0) as f64;
     let scale = current_monitor["scale"].as_f64().unwrap_or(1.0);
 
-    let geometry = format!(
-        "{},{} {}x{}",
+    let geometry = Geometry::new(
         x,
         y,
         (width / scale).round() as i32,
-        (height / scale).round() as i32
-    );
+        (height / scale).round() as i32,
+    )?;
     if debug {
         eprintln!("Active output geometry: {}", geometry);
     }
     Ok(geometry)
 }
 
-fn grab_active_output_sway(debug: bool) -> Result<String> {
+fn grab_active_output_sway(debug: bool) -> Result<Geometry> {
     let workspaces = sway_msg(&["-t", "get_workspaces"])?;
     let focused_output = workspaces
         .as_array()
@@ -144,14 +145,14 @@ fn grab_active_output_sway(debug: bool) -> Result<String> {
     let width = rect.get("width").and_then(|v| v.as_i64()).unwrap_or(0);
     let height = rect.get("height").and_then(|v| v.as_i64()).unwrap_or(0);
 
-    let geometry = format!("{},{} {}x{}", x, y, width, height);
+    let geometry = Geometry::new(x as i32, y as i32, width as i32, height as i32)?;
     if debug {
         eprintln!("Active output geometry (sway): {}", geometry);
     }
     Ok(geometry)
 }
 
-pub fn grab_selected_output(monitor: &str, debug: bool) -> Result<String> {
+pub fn grab_selected_output(monitor: &str, debug: bool) -> Result<Geometry> {
     #[cfg(feature = "freeze")]
     if let Ok(geometry) = grab_selected_output_wayland(monitor, debug) {
         return Ok(geometry);
@@ -164,7 +165,7 @@ pub fn grab_selected_output(monitor: &str, debug: bool) -> Result<String> {
 }
 
 #[cfg(feature = "freeze")]
-fn grab_selected_output_wayland(monitor: &str, debug: bool) -> Result<String> {
+fn grab_selected_output_wayland(monitor: &str, debug: bool) -> Result<Geometry> {
     let conn = Connection::connect_to_env().context("Failed to connect to Wayland")?;
     let mut event_queue = conn.new_event_queue();
     let qh = event_queue.handle();
@@ -373,11 +374,11 @@ fn grab_selected_output_wayland(monitor: &str, debug: bool) -> Result<String> {
         ))
     }
 
-    fn output_geometry(output: &OutputEntry) -> Option<String> {
+    fn output_geometry(output: &OutputEntry) -> Option<Geometry> {
         let x = output.logical_x.or(output.pos_x)?;
         let y = output.logical_y.or(output.pos_y)?;
         let (width, height) = output_logical_size(output)?;
-        Some(format!("{},{} {}x{}", x, y, width, height))
+        Geometry::new(x, y, width, height).ok()
     }
 
     let geometry = output_geometry(output).context("Output geometry not available")?;
@@ -387,7 +388,7 @@ fn grab_selected_output_wayland(monitor: &str, debug: bool) -> Result<String> {
     Ok(geometry)
 }
 
-pub fn grab_region(debug: bool) -> Result<String> {
+pub fn grab_region(debug: bool) -> Result<Geometry> {
     let slurp_path = get_slurp_path()?;
 
     let output = Command::new(slurp_path)
@@ -407,10 +408,10 @@ pub fn grab_region(debug: bool) -> Result<String> {
     if geometry.is_empty() {
         return Err(anyhow::anyhow!("slurp returned empty geometry"));
     }
-    Ok(geometry)
+    geometry.parse()
 }
 
-pub fn grab_window(debug: bool) -> Result<String> {
+pub fn grab_window(debug: bool) -> Result<Geometry> {
     if let Ok(geometry) = grab_window_hyprctl(debug) {
         return Ok(geometry);
     }
@@ -423,7 +424,7 @@ pub fn grab_window(debug: bool) -> Result<String> {
     ))
 }
 
-fn grab_window_hyprctl(debug: bool) -> Result<String> {
+fn grab_window_hyprctl(debug: bool) -> Result<Geometry> {
     let monitors: Value = serde_json::from_slice(
         &Command::new("hyprctl")
             .arg("monitors")
@@ -537,16 +538,10 @@ fn grab_window_hyprctl(debug: bool) -> Result<String> {
     if geometry.is_empty() {
         return Err(anyhow::anyhow!("slurp returned empty geometry"));
     }
-
-    let parts: Vec<&str> = geometry.split(' ').collect();
-    if parts.len() != 2 || parts[0].split(',').count() != 2 || parts[1].split('x').count() != 2 {
-        return Err(anyhow::anyhow!("Invalid geometry format: '{}'", geometry));
-    }
-
-    Ok(geometry)
+    geometry.parse()
 }
 
-pub fn grab_active_window(debug: bool) -> Result<String> {
+pub fn grab_active_window(debug: bool) -> Result<Geometry> {
     if let Ok(geometry) = grab_active_window_hyprctl(debug) {
         return Ok(geometry);
     }
@@ -559,7 +554,7 @@ pub fn grab_active_window(debug: bool) -> Result<String> {
     ))
 }
 
-fn grab_active_window_hyprctl(debug: bool) -> Result<String> {
+fn grab_active_window_hyprctl(debug: bool) -> Result<Geometry> {
     let active_window: Value = serde_json::from_slice(
         &Command::new("hyprctl")
             .arg("activewindow")
@@ -593,14 +588,14 @@ fn grab_active_window_hyprctl(debug: bool) -> Result<String> {
         ));
     }
 
-    let geometry = format!("{},{} {}x{}", x, y, width, height);
+    let geometry = Geometry::new(x as i32, y as i32, width as i32, height as i32)?;
     if debug {
         eprintln!("Active window geometry: {}", geometry);
     }
     Ok(geometry)
 }
 
-fn grab_window_sway(debug: bool) -> Result<String> {
+fn grab_window_sway(debug: bool) -> Result<Geometry> {
     let workspaces = sway_msg(&["-t", "get_workspaces"])?;
     let visible_workspaces: HashSet<String> = workspaces
         .as_array()
@@ -655,10 +650,10 @@ fn grab_window_sway(debug: bool) -> Result<String> {
         return Err(anyhow::anyhow!("slurp returned empty geometry"));
     }
 
-    Ok(geometry)
+    geometry.parse()
 }
 
-fn grab_active_window_sway(debug: bool) -> Result<String> {
+fn grab_active_window_sway(debug: bool) -> Result<Geometry> {
     let tree = sway_msg(&["-t", "get_tree"])?;
     let focused = find_focused_window(&tree).context("Focused window not found (sway)")?;
 
@@ -678,7 +673,7 @@ fn grab_active_window_sway(debug: bool) -> Result<String> {
         ));
     }
 
-    let geometry = format!("{},{} {}x{}", x, y, width, height);
+    let geometry = Geometry::new(x as i32, y as i32, width as i32, height as i32)?;
     if debug {
         eprintln!("Active window geometry (sway): {}", geometry);
     }

@@ -2,48 +2,16 @@ use anyhow::{Context, Result};
 use serde_json::Value;
 use std::process::Command;
 
-pub fn trim(geometry: &str, debug: bool) -> Result<String> {
+use crate::geometry::Geometry;
+
+pub fn trim(geometry: &Geometry, debug: bool) -> Result<Geometry> {
     if debug {
         eprintln!("Input geometry: {}", geometry);
     }
-
-    let parts: Vec<&str> = geometry.split(' ').collect();
-    if parts.len() != 2 {
-        return Err(anyhow::anyhow!(
-            "Invalid geometry format: expected 'x,y wxh', got '{}'",
-            geometry
-        ));
-    }
-
-    let xy: Vec<&str> = parts[0].split(',').collect();
-    let wh: Vec<&str> = parts[1].split('x').collect();
-    if xy.len() != 2 || wh.len() != 2 {
-        return Err(anyhow::anyhow!(
-            "Invalid geometry format: expected 'x,y wxh', got '{}'",
-            geometry
-        ));
-    }
-
-    let x: i32 = xy[0]
-        .parse()
-        .context(format!("Failed to parse x coordinate from '{}'", xy[0]))?;
-    let y: i32 = xy[1]
-        .parse()
-        .context(format!("Failed to parse y coordinate from '{}'", xy[1]))?;
-    let width: i32 = wh[0]
-        .parse()
-        .context(format!("Failed to parse width from '{}'", wh[0]))?;
-    let height: i32 = wh[1]
-        .parse()
-        .context(format!("Failed to parse height from '{}'", wh[1]))?;
-
-    if width <= 0 || height <= 0 {
-        return Err(anyhow::anyhow!(
-            "Invalid geometry dimensions: width={} or height={} is non-positive",
-            width,
-            height
-        ));
-    }
+    let x = geometry.x;
+    let y = geometry.y;
+    let width = geometry.width;
+    let height = geometry.height;
 
     let mut mon_x = 0;
     let mut mon_y = 0;
@@ -118,7 +86,7 @@ pub fn trim(geometry: &str, debug: bool) -> Result<String> {
         if debug {
             eprintln!("Warning: could not determine monitor bounds; using raw geometry");
         }
-        return Ok(geometry.to_string());
+        return Ok(*geometry);
     }
 
     let mut cropped_x = x;
@@ -149,10 +117,7 @@ pub fn trim(geometry: &str, debug: bool) -> Result<String> {
         ));
     }
 
-    let cropped = format!(
-        "{0},{1} {2}x{3}",
-        cropped_x, cropped_y, cropped_width, cropped_height
-    );
+    let cropped = Geometry::new(cropped_x, cropped_y, cropped_width, cropped_height)?;
     if debug {
         eprintln!("Cropped geometry: {}", cropped);
     }
