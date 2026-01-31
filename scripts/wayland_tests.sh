@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BIN="${1:-$(pwd)/target/release/hyprshot-rs}"
-OUT_DIR="${2:-$(pwd)}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BIN="${1:-$REPO_ROOT/target/release/hyprshot-rs}"
+OUT_DIR="${2:-$REPO_ROOT}"
 
 if [[ ! -x "$BIN" ]]; then
   echo "Binary not found or not executable: $BIN"

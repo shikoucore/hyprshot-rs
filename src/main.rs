@@ -157,7 +157,7 @@ enum Mode {
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    let mut args = Args::parse();
 
     // Handle config management commands first
     if args.init_config {
@@ -200,14 +200,15 @@ fn main() -> Result<()> {
     let command = if args.command.is_empty() {
         None
     } else {
-        Some(args.command)
+        Some(std::mem::take(&mut args.command))
     };
 
     let mut option: Option<Mode> = None;
     let mut current = false;
     let mut selected_monitor: Option<String> = None;
 
-    for mode in args.mode {
+    let modes = std::mem::take(&mut args.mode);
+    for mode in modes {
         match mode {
             Mode::Output | Mode::Window | Mode::Region => {
                 option = Some(mode);
