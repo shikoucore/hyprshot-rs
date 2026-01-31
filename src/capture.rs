@@ -441,14 +441,13 @@ fn grab_window_hyprctl(debug: bool) -> Result<String> {
             .stdout,
     )?;
 
-    let workspace_ids: String = monitors
+    // Use exact workspace ID matching to avoid substring collisions (e.g., "2" vs "12").
+    let workspace_ids: HashSet<i64> = monitors
         .as_array()
         .map(|arr| {
             arr.iter()
                 .filter_map(|m| m["activeWorkspace"]["id"].as_i64())
-                .map(|id| id.to_string())
-                .collect::<Vec<_>>()
-                .join(",")
+                .collect::<HashSet<_>>()
         })
         .unwrap_or_default();
 
@@ -459,7 +458,7 @@ fn grab_window_hyprctl(debug: bool) -> Result<String> {
                 .filter(|c| {
                     c["workspace"]["id"]
                         .as_i64()
-                        .map(|id| workspace_ids.contains(&id.to_string()))
+                        .map(|id| workspace_ids.contains(&id))
                         .unwrap_or(false)
                 })
                 .cloned()
