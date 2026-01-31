@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Filename collisions**: Reduced the chance of overwriting when taking multiple screenshots quickly.
 - **Format clarity**: PNG is the only supported format, avoiding confusing options.
 - **Clipboard performance**: Faster clipboard copy without extra disk reads.
+- **Startup I/O**: Reduced unnecessary disk writes during normal runs.
 
 ## [release 0.1.5] 2026-01-29
 

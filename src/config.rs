@@ -240,7 +240,8 @@ pub fn expand_path(path: &str) -> Result<PathBuf> {
 pub fn ensure_directory(path: &str) -> Result<PathBuf> {
     let expanded_path = expand_path(path)?;
 
-    if !expanded_path.exists() {
+    let existed = expanded_path.exists();
+    if !existed {
         fs::create_dir_all(&expanded_path).context(format!(
             "Failed to create directory: {}",
             expanded_path.display()
@@ -254,17 +255,21 @@ pub fn ensure_directory(path: &str) -> Result<PathBuf> {
         ));
     }
 
-    let test_file = expanded_path.join(".hyprshot_test");
-    match fs::write(&test_file, b"test") {
-        Ok(_) => {
-            let _ = fs::remove_file(&test_file);
-            Ok(expanded_path)
+    if !existed {
+        let test_file = expanded_path.join(".hyprshot_test");
+        match fs::write(&test_file, b"test") {
+            Ok(_) => {
+                let _ = fs::remove_file(&test_file);
+                Ok(expanded_path)
+            }
+            Err(e) => Err(anyhow::anyhow!(
+                "Directory is not writable: {} - {}",
+                expanded_path.display(),
+                e
+            )),
         }
-        Err(e) => Err(anyhow::anyhow!(
-            "Directory is not writable: {} - {}",
-            expanded_path.display(),
-            e
-        )),
+    } else {
+        Ok(expanded_path)
     }
 }
 

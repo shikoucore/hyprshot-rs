@@ -47,6 +47,10 @@ pub fn grab_output(debug: bool) -> Result<String> {
     Ok(geometry)
 }
 
+// Support matrix:
+// - region/output: Wayland-wide via slurp
+// - output by name: Wayland enumeration (no hyprctl)
+// - window/active: Hyprland and Sway (hyprctl/swaymsg)
 pub fn grab_active_output(debug: bool) -> Result<String> {
     if let Ok(geometry) = grab_active_output_hyprctl(debug) {
         return Ok(geometry);

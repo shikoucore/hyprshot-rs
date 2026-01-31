@@ -95,6 +95,12 @@ possible values: output, window, region, active, OUTPUT_NAME
 
 Note: `active` is a modifier and must be combined with `output` or `window`.
 
+## Compatibility
+
+- `region` and `output` work on Wayland without `hyprctl` (via `slurp`).
+- `output -m DP-1` works without `hyprctl` (Wayland output enumeration).
+- `window` and `active` are supported on **Hyprland** and **Sway** only (via `hyprctl`/`swaymsg`).
+
 Possible values:
 
 - Capture a window:

@@ -23,6 +23,8 @@ Specify one or more modes with `-m` / `--mode`:
 Notes:
 - `active` must be combined with `output` or `window`.
 - If multiple base modes are provided (`output`, `window`, `region`), the last one wins.
+- `region` and `output` are Wayland‑wide (no `hyprctl` required).
+- `window`/`active` are supported on Hyprland and Sway only.
 
 To list available monitor names (Hyprland):
 
