@@ -35,6 +35,7 @@ Before starting work:
 - Keep tests deterministic.
 - Avoid environment‑specific assumptions.
 - Run `cargo test` locally before opening a PR.
+- For manual Wayland verification, use `scripts/wayland_tests.sh` with the built binary.
 
 ## Documentation & Changelog
 - Update `README.md` for user‑facing changes.

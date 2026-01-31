@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::Local;
+use chrono::{DateTime, Local};
 use clap::Parser;
 use notify_rust::Notification;
 use std::path::PathBuf;
@@ -124,6 +124,29 @@ impl std::fmt::Debug for Args {
     }
 }
 
+fn resolve_notif_timeout(args: &Args, config: &config::Config) -> u32 {
+    args.notif_timeout
+        .unwrap_or(config.capture.notification_timeout)
+}
+
+fn resolve_delay(args: &Args, config: &config::Config) -> Duration {
+    if let Some(d) = args.delay {
+        Duration::from_secs(d)
+    } else if config.advanced.delay_ms > 0 {
+        Duration::from_millis(config.advanced.delay_ms as u64)
+    } else {
+        Duration::from_secs(0)
+    }
+}
+
+fn default_filename(now: DateTime<Local>) -> String {
+    format!(
+        "{}-{:03}_hyprshot.png",
+        now.format("%Y-%m-%d-%H%M%S"),
+        now.timestamp_subsec_millis()
+    )
+}
+
 #[derive(Clone, Debug)]
 enum Mode {
     Output,
@@ -223,9 +246,7 @@ fn main() -> Result<()> {
         !config.capture.notification
     };
 
-    let notif_timeout = args
-        .notif_timeout
-        .unwrap_or(config.capture.notification_timeout);
+    let notif_timeout = resolve_notif_timeout(&args, &config);
 
     let freeze = if args.freeze {
         true
@@ -233,13 +254,7 @@ fn main() -> Result<()> {
         config.advanced.freeze_on_region
     };
 
-    let delay = if let Some(d) = args.delay {
-        Duration::from_secs(d)
-    } else if config.advanced.delay_ms > 0 {
-        Duration::from_millis(config.advanced.delay_ms as u64)
-    } else {
-        Duration::from_secs(0)
-    };
+    let delay = resolve_delay(&args, &config);
 
     let save_dir = config::get_screenshots_dir(args.output_folder.clone(), &config, debug)?;
 
@@ -249,14 +264,7 @@ fn main() -> Result<()> {
         save_dir
     };
 
-    let filename = args.filename.unwrap_or_else(|| {
-        let now = Local::now();
-        format!(
-            "{}-{:03}_hyprshot.png",
-            now.format("%Y-%m-%d-%H%M%S"),
-            now.timestamp_subsec_millis()
-        )
-    });
+    let filename = args.filename.unwrap_or_else(|| default_filename(Local::now()));
     let save_fullpath = save_dir.join(&filename);
 
     if debug && !clipboard_only {
@@ -395,6 +403,9 @@ fn handle_set_config(args: &[String]) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
 
 fn set_config_value(config: &mut config::Config, key: &str, value: &str) -> Result<()> {
     let parts: Vec<&str> = key.split('.').collect();
