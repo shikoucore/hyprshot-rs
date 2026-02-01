@@ -1,0 +1,27 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  width="24"
+  height="24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="square"
+  stroke-linejoin="miter"
+>
+  <!-- top-left -->
+  <path d="M4 8 V4 H8" />
+
+  <!-- top-right -->
+  <path d="M16 4 H20 V8" />
+
+  <!-- bottom-right -->
+  <path d="M20 16 V20 H16" />
+
+  <!-- bottom-left -->
+  <path d="M8 20 H4 V16" />
+
+  <!-- plus in center -->
+  <line x1="9" y1="12" x2="15" y2="12" />
+  <line x1="12" y1="9" x2="12" y2="15" />
+</svg>
