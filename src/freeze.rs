@@ -450,10 +450,10 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
 
         // Sync with the next compositor frame before capturing outputs to avoid
         // stale selection UI from a previous run.
-        if let Err(err) = sync_next_frame(&mut event_queue, &qh, &compositor, &mut state) {
-            if debug {
-                eprintln!("Freeze frame sync failed: {}", err);
-            }
+        if let Err(err) = sync_next_frame(&mut event_queue, &qh, &compositor, &mut state)
+            && debug
+        {
+            eprintln!("Freeze frame sync failed: {}", err);
         }
 
         let mut grim = match Grim::new() {

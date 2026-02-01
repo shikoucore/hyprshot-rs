@@ -38,7 +38,7 @@ impl HyprctlCache {
     }
 }
 
-fn hyprctl_monitors_json<'a>(cache: &'a mut HyprctlCache, timeout: Duration) -> Result<&'a Value> {
+fn hyprctl_monitors_json(cache: &mut HyprctlCache, timeout: Duration) -> Result<&Value> {
     if cache.monitors.is_none() {
         let output = output_with_timeout(
             {
@@ -54,10 +54,10 @@ fn hyprctl_monitors_json<'a>(cache: &'a mut HyprctlCache, timeout: Duration) -> 
         cache.monitors = Some(monitors);
     }
 
-    Ok(cache
+    cache
         .monitors
         .as_ref()
-        .context("Hyprctl monitors cache missing")?)
+        .context("Hyprctl monitors cache missing")
 }
 
 pub fn grab_output(debug: bool) -> Result<Geometry> {
@@ -729,10 +729,11 @@ fn collect_visible_windows(
             .unwrap_or(false);
     }
 
-    if visible && is_window_node(node) {
-        if let Some(line) = format_window_box(node) {
-            boxes.push(line);
-        }
+    if visible
+        && is_window_node(node)
+        && let Some(line) = format_window_box(node)
+    {
+        boxes.push(line);
     }
 
     if let Some(nodes) = node.get("nodes").and_then(|v| v.as_array()) {
@@ -776,7 +777,7 @@ fn format_window_box(node: &Value) -> Option<String> {
     Some(format!("{},{} {}x{} {}", x, y, width, height, title))
 }
 
-fn find_focused_window<'a>(node: &'a Value) -> Option<&'a Value> {
+fn find_focused_window(node: &Value) -> Option<&Value> {
     if node.get("focused").and_then(|v| v.as_bool()) == Some(true) && is_window_node(node) {
         return Some(node);
     }

@@ -63,7 +63,7 @@ fn extract_slurp(target_path: &PathBuf) -> Result<()> {
 }
 
 /// Checks whether the embedded slurp needs to be refreshed.
-fn needs_update(slurp_path: &PathBuf) -> Result<bool> {
+fn needs_update(slurp_path: &Path) -> Result<bool> {
     if !slurp_path.exists() {
         return Ok(true);
     }
@@ -121,15 +121,13 @@ fn acquire_lock(dir: &Path) -> Result<LockGuard> {
                 return Ok(LockGuard { path: lock_path });
             }
             Err(_) => {
-                if let Ok(metadata) = std::fs::metadata(&lock_path) {
-                    if let Ok(modified) = metadata.modified() {
-                        if let Ok(age) = modified.elapsed() {
-                            if age > Duration::from_secs(30) {
-                                let _ = std::fs::remove_file(&lock_path);
-                                continue;
-                            }
-                        }
-                    }
+                if let Ok(metadata) = std::fs::metadata(&lock_path)
+                    && let Ok(modified) = metadata.modified()
+                    && let Ok(age) = modified.elapsed()
+                    && age > Duration::from_secs(30)
+                {
+                    let _ = std::fs::remove_file(&lock_path);
+                    continue;
                 }
                 if start.elapsed().unwrap_or(Duration::from_secs(0)) > max_wait {
                     return Err(anyhow::anyhow!(
