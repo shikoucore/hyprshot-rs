@@ -1,8 +1,8 @@
 use crate::{Args, Mode, default_filename, resolve_delay, resolve_notif_timeout};
 use chrono::TimeZone;
 use clap::Parser;
-use std::time::Duration;
 use std::str::FromStr;
+use std::time::Duration;
 use std::{env, path::PathBuf};
 
 #[test]
@@ -36,7 +36,10 @@ fn delay_uses_milliseconds_from_config() {
 
 #[test]
 fn filename_includes_milliseconds() {
-    let now = match chrono::Local.timestamp_millis_opt(1_700_000_000_123).single() {
+    let now = match chrono::Local
+        .timestamp_millis_opt(1_700_000_000_123)
+        .single()
+    {
         Some(v) => v,
         None => panic!("Failed to construct timestamp for test"),
     };
@@ -46,11 +49,17 @@ fn filename_includes_milliseconds() {
 
 #[test]
 fn filenames_differ_for_distinct_timestamps() {
-    let first = match chrono::Local.timestamp_millis_opt(1_700_000_000_001).single() {
+    let first = match chrono::Local
+        .timestamp_millis_opt(1_700_000_000_001)
+        .single()
+    {
         Some(v) => v,
         None => panic!("Failed to construct first timestamp for test"),
     };
-    let second = match chrono::Local.timestamp_millis_opt(1_700_000_000_002).single() {
+    let second = match chrono::Local
+        .timestamp_millis_opt(1_700_000_000_002)
+        .single()
+    {
         Some(v) => v,
         None => panic!("Failed to construct second timestamp for test"),
     };
@@ -327,13 +336,16 @@ fn test_generate_hyprland_binds_with_clipboard() {
     assert!(binds.contains("bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region"));
 
     assert!(binds.contains("# Screenshot to clipboard (no file saved)"));
-    assert!(binds.contains(
-        "bind = SUPER ALT, Print, exec, hyprshot-rs -m window --clipboard-only"
-    ));
-    assert!(binds.contains(
-        "bind = SUPER SHIFT ALT, Print, exec, hyprshot-rs -m region --clipboard-only"
-    ));
-    assert!(binds.contains(
-        "bind = SUPER CTRL ALT, Print, exec, hyprshot-rs -m output --clipboard-only"
-    ));
+    assert!(
+        binds.contains("bind = SUPER ALT, Print, exec, hyprshot-rs -m window --clipboard-only")
+    );
+    assert!(
+        binds.contains(
+            "bind = SUPER SHIFT ALT, Print, exec, hyprshot-rs -m region --clipboard-only"
+        )
+    );
+    assert!(
+        binds
+            .contains("bind = SUPER CTRL ALT, Print, exec, hyprshot-rs -m output --clipboard-only")
+    );
 }

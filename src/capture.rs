@@ -38,10 +38,7 @@ impl HyprctlCache {
     }
 }
 
-fn hyprctl_monitors_json<'a>(
-    cache: &'a mut HyprctlCache,
-    timeout: Duration,
-) -> Result<&'a Value> {
+fn hyprctl_monitors_json<'a>(cache: &'a mut HyprctlCache, timeout: Duration) -> Result<&'a Value> {
     if cache.monitors.is_none() {
         let output = output_with_timeout(
             {
