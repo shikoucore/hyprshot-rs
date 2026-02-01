@@ -48,14 +48,29 @@ echo "OK: $OUT_FILE"
 echo
 
 echo "6) Two quick captures (filename collision check)"
-"$BIN" -m region >/dev/null
-"$BIN" -m region >/dev/null
+FIRST_NAME=$("$BIN" -m region -d 2>&1 | awk '/Saving in:/ {print $3; exit}')
+SECOND_NAME=$("$BIN" -m region -d 2>&1 | awk '/Saving in:/ {print $3; exit}')
+if [[ -z "$FIRST_NAME" || -z "$SECOND_NAME" ]]; then
+  echo "Failed to capture filenames from debug output."
+  exit 1
+fi
+if [[ "$FIRST_NAME" == "$SECOND_NAME" ]]; then
+  echo "Filename collision detected: $FIRST_NAME"
+  exit 1
+fi
 echo "OK"
 echo
 
 echo "7) Clipboard/notify (best-effort) sanity"
 echo "Check for notification and clipboard content manually."
 "$BIN" -m region
+echo
+
+echo "8) Missing wl-copy should not break saving"
+TEMP_PATH="$(mktemp -d)"
+PATH="$TEMP_PATH" "$BIN" -m region || true
+rm -rf "$TEMP_PATH"
+echo "OK"
 echo
 
 echo "All manual Wayland tests completed."
