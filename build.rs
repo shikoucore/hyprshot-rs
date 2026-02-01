@@ -1,63 +1,93 @@
+//! Build script for embedding the vendored slurp binary when possible.
+//! Falls back to system slurp if build dependencies are missing or build fails.
+
 use std::env;
 use std::path::PathBuf;
 use std::process::Command;
 
 fn main() {
     println!("cargo:rerun-if-changed=vendor/slurp");
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let mut embedded = false;
+    let mut slurp_path: Option<PathBuf> = None;
+
     if !check_command("meson") {
         eprintln!("Warning: meson not found. Slurp will not be embedded.");
         eprintln!("Install it with: pacman -S meson (Arch) or equivalent");
         eprintln!("Falling back to system slurp dependency.");
-        return;
-    }
-    if !check_command("ninja") {
+    } else if !check_command("ninja") {
         eprintln!("Warning: ninja not found. Slurp will not be embedded.");
         eprintln!("Install it with: pacman -S ninja (Arch) or equivalent");
         eprintln!("Falling back to system slurp dependency.");
-        return;
-    }
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    let slurp_src = PathBuf::from("vendor/slurp");
-    if !slurp_src.join("meson.build").exists() {
-        eprintln!("Warning: slurp submodule not initialized.");
-        eprintln!("Run: git submodule update --init --recursive");
-        eprintln!("Falling back to system slurp dependency.");
-        return;
-    }
-    let build_dir = out_dir.join("slurp-build");
-    println!("Building embedded slurp...");
-    if !build_dir.exists() {
-        std::fs::create_dir_all(&build_dir).unwrap();
-        let status = Command::new("meson")
-            .arg("setup")
-            .arg(&build_dir)
-            .arg(&slurp_src)
-            .arg("--prefix=/usr")
-            .arg("--buildtype=release")
-            .status()
-            .expect("Failed to run meson setup");
+    } else {
+        let slurp_src = PathBuf::from("vendor/slurp");
+        if !slurp_src.join("meson.build").exists() {
+            eprintln!("Warning: slurp submodule not initialized.");
+            eprintln!("Run: git submodule update --init --recursive");
+            eprintln!("Falling back to system slurp dependency.");
+        } else {
+            let build_dir = out_dir.join("slurp-build");
+            println!("Building embedded slurp...");
+            if !build_dir.exists() {
+                if let Err(err) = std::fs::create_dir_all(&build_dir) {
+                    eprintln!("Warning: failed to create slurp build dir: {}", err);
+                } else {
+                    let status = Command::new("meson")
+                        .arg("setup")
+                        .arg(&build_dir)
+                        .arg(&slurp_src)
+                        .arg("--prefix=/usr")
+                        .arg("--buildtype=release")
+                        .status();
 
-        if !status.success() {
-            panic!("Meson setup failed. Check that all dependencies are installed.");
+                    match status {
+                        Ok(status) if status.success() => {}
+                        Ok(_) => {
+                            eprintln!("Warning: meson setup failed. Falling back to system slurp.");
+                        }
+                        Err(err) => {
+                            eprintln!("Warning: failed to run meson setup: {}", err);
+                        }
+                    }
+                }
+            }
+
+            if build_dir.exists() {
+                let status = Command::new("ninja").arg("-C").arg(&build_dir).status();
+                match status {
+                    Ok(status) if status.success() => {
+                        let slurp_binary = build_dir.join("slurp");
+                        if slurp_binary.exists() {
+                            let target_binary = out_dir.join("slurp");
+                            if let Err(err) = std::fs::copy(&slurp_binary, &target_binary) {
+                                eprintln!("Warning: failed to copy slurp binary: {}", err);
+                            } else {
+                                println!(
+                                    "Slurp built successfully at: {}",
+                                    target_binary.display()
+                                );
+                                embedded = true;
+                                slurp_path = Some(target_binary);
+                            }
+                        } else {
+                            eprintln!(
+                                "Warning: slurp binary not found at: {}",
+                                slurp_binary.display()
+                            );
+                        }
+                    }
+                    Ok(_) => {
+                        eprintln!("Warning: ninja build failed. Falling back to system slurp.");
+                    }
+                    Err(err) => {
+                        eprintln!("Warning: failed to run ninja: {}", err);
+                    }
+                }
+            }
         }
     }
-    let status = Command::new("ninja")
-        .arg("-C")
-        .arg(&build_dir)
-        .status()
-        .expect("Failed to run ninja");
-
-    if !status.success() {
-        panic!("Ninja build failed. Check build output above.");
-    }
-    let slurp_binary = build_dir.join("slurp");
-    if !slurp_binary.exists() {
-        panic!("Slurp binary not found at: {}", slurp_binary.display());
-    }
-    let target_binary = out_dir.join("slurp");
-    std::fs::copy(&slurp_binary, &target_binary).expect("Failed to copy slurp binary");
-    println!("Slurp built successfully at: {}", target_binary.display());
-    let embed_code = r#"// Auto-generated by build.rs
+    let embed_code = if embedded {
+        r#"// Auto-generated by build.rs
 // This file contains the embedded slurp binary
 
 #[cfg(target_os = "linux")]
@@ -65,12 +95,25 @@ pub const EMBEDDED_SLURP: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/slur
 
 #[cfg(not(target_os = "linux"))]
 pub const EMBEDDED_SLURP: &[u8] = &[];
-"#;
+"#
+    } else {
+        r#"// Auto-generated by build.rs
+// Embedded slurp not available; fallback to system slurp.
+
+#[cfg(target_os = "linux")]
+pub const EMBEDDED_SLURP: &[u8] = &[];
+
+#[cfg(not(target_os = "linux"))]
+pub const EMBEDDED_SLURP: &[u8] = &[];
+"#
+    };
 
     let embed_file = out_dir.join("embedded_slurp.rs");
     std::fs::write(&embed_file, embed_code).expect("Failed to write embedded_slurp.rs");
 
-    println!("cargo:rustc-env=SLURP_EMBEDDED=1");
+    if embedded && slurp_path.is_some() {
+        println!("cargo:rustc-env=SLURP_EMBEDDED=1");
+    }
 }
 
 fn check_command(cmd: &str) -> bool {

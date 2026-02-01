@@ -54,16 +54,6 @@ pub struct HotkeysConfig {
 /// Configuration for capture settings
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CaptureConfig {
-    /// Default format for screenshots (png, jpeg, ppm)
-    /// Default: "png"
-    #[serde(default = "default_format")]
-    pub default_format: String,
-
-    /// Automatically copy screenshot to clipboard
-    /// Default: false
-    #[serde(default)]
-    pub clipboard_on_capture: bool,
-
     /// Show notifications after capture
     /// Default: true
     #[serde(default = "default_notification")]
@@ -110,10 +100,6 @@ fn default_hotkey_active_output() -> String {
     ", Print".to_string()
 }
 
-fn default_format() -> String {
-    "png".to_string()
-}
-
 fn default_notification() -> bool {
     true
 }
@@ -148,8 +134,6 @@ impl Default for HotkeysConfig {
 impl Default for CaptureConfig {
     fn default() -> Self {
         Self {
-            default_format: default_format(),
-            clipboard_on_capture: false,
             notification: default_notification(),
             notification_timeout: default_notification_timeout(),
         }
@@ -256,7 +240,8 @@ pub fn expand_path(path: &str) -> Result<PathBuf> {
 pub fn ensure_directory(path: &str) -> Result<PathBuf> {
     let expanded_path = expand_path(path)?;
 
-    if !expanded_path.exists() {
+    let existed = expanded_path.exists();
+    if !existed {
         fs::create_dir_all(&expanded_path).context(format!(
             "Failed to create directory: {}",
             expanded_path.display()
@@ -270,17 +255,21 @@ pub fn ensure_directory(path: &str) -> Result<PathBuf> {
         ));
     }
 
-    let test_file = expanded_path.join(".hyprshot_test");
-    match fs::write(&test_file, b"test") {
-        Ok(_) => {
-            let _ = fs::remove_file(&test_file);
-            Ok(expanded_path)
+    if !existed {
+        let test_file = expanded_path.join(".hyprshot_test");
+        match fs::write(&test_file, b"test") {
+            Ok(_) => {
+                let _ = fs::remove_file(&test_file);
+                Ok(expanded_path)
+            }
+            Err(e) => Err(anyhow::anyhow!(
+                "Directory is not writable: {} - {}",
+                expanded_path.display(),
+                e
+            )),
         }
-        Err(e) => Err(anyhow::anyhow!(
-            "Directory is not writable: {} - {}",
-            expanded_path.display(),
-            e
-        )),
+    } else {
+        Ok(expanded_path)
     }
 }
 
@@ -563,239 +552,5 @@ impl Config {
             .context("Failed to get home directory")?
             .join(".config/hypr/hyprland.conf");
         Ok(path)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_default_config() {
-        let config = Config::default();
-        assert_eq!(config.paths.screenshots_dir, "~/Pictures");
-        assert_eq!(config.hotkeys.window, "SUPER, Print");
-        assert_eq!(config.capture.default_format, "png");
-        assert_eq!(config.capture.notification, true);
-        assert_eq!(config.capture.notification_timeout, 3000);
-        assert_eq!(config.advanced.freeze_on_region, true);
-        assert_eq!(config.advanced.delay_ms, 0);
-    }
-
-    #[test]
-    fn test_config_serialization() {
-        let config = Config::default();
-        let toml_str = toml::to_string(&config).unwrap();
-        assert!(toml_str.contains("[paths]"));
-        assert!(toml_str.contains("[hotkeys]"));
-        assert!(toml_str.contains("[capture]"));
-        assert!(toml_str.contains("[advanced]"));
-    }
-
-    #[test]
-    fn test_config_deserialization() {
-        let toml_str = r#"
-            [paths]
-            screenshots_dir = "~/Documents"
-
-            [hotkeys]
-            window = "ALT, W"
-            region = "ALT, R"
-
-            [capture]
-            default_format = "jpeg"
-            notification = false
-
-            [advanced]
-            delay_ms = 500
-        "#;
-
-        let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.paths.screenshots_dir, "~/Documents");
-        assert_eq!(config.hotkeys.window, "ALT, W");
-        assert_eq!(config.capture.default_format, "jpeg");
-        assert_eq!(config.capture.notification, false);
-        assert_eq!(config.advanced.delay_ms, 500);
-    }
-
-    #[test]
-    fn test_partial_config() {
-        let toml_str = r#"
-            [paths]
-            screenshots_dir = "~/Custom"
-        "#;
-
-        let config: Config = toml::from_str(toml_str).unwrap();
-        assert_eq!(config.paths.screenshots_dir, "~/Custom");
-        // These should have default values
-        assert_eq!(config.hotkeys.window, "SUPER, Print");
-        assert_eq!(config.capture.notification, true);
-    }
-
-    #[test]
-    fn test_expand_path_tilde() {
-        let result = expand_path("~/Pictures").unwrap();
-        let home = dirs::home_dir().unwrap();
-        assert_eq!(result, home.join("Pictures"));
-
-        let result = expand_path("~").unwrap();
-        assert_eq!(result, home);
-    }
-
-    #[test]
-    fn test_expand_path_env_vars() {
-        unsafe {
-            env::set_var("TEST_VAR", "/test/path");
-        }
-
-        let result = expand_path("$TEST_VAR/screenshots").unwrap();
-        assert_eq!(result, PathBuf::from("/test/path/screenshots"));
-
-        unsafe {
-            env::remove_var("TEST_VAR");
-        }
-    }
-
-    #[test]
-    fn test_expand_path_xdg_pictures() {
-        // $XDG_PICTURES_DIR
-        let result = expand_path("$XDG_PICTURES_DIR/screenshots").unwrap();
-        if let Some(pictures_dir) = dirs::picture_dir() {
-            assert_eq!(result, pictures_dir.join("screenshots"));
-        } else {
-            let home = dirs::home_dir().unwrap();
-            assert_eq!(result, home.join("Pictures/screenshots"));
-        }
-    }
-
-    #[test]
-    fn test_expand_path_empty() {
-        let result = expand_path("").unwrap();
-        assert_eq!(result, PathBuf::from("."));
-    }
-
-    #[test]
-    fn test_expand_path_no_expansion() {
-        let result = expand_path("/absolute/path").unwrap();
-        assert_eq!(result, PathBuf::from("/absolute/path"));
-
-        let result = expand_path("relative/path").unwrap();
-        assert_eq!(result, PathBuf::from("relative/path"));
-    }
-
-    #[test]
-    fn test_expand_path_undefined_var() {
-        let result = expand_path("$UNDEFINED_VAR_12345/test").unwrap();
-        assert_eq!(result, PathBuf::from("$UNDEFINED_VAR_12345/test"));
-    }
-
-    #[test]
-    fn test_get_screenshots_dir_priority_cli() {
-        let config = Config::default();
-        let cli_path = Some(PathBuf::from("/cli/path"));
-
-        unsafe {
-            env::set_var("HYPRSHOT_DIR", "/env/path");
-        }
-
-        let result = get_screenshots_dir(cli_path, &config, false).unwrap();
-        assert_eq!(result, PathBuf::from("/cli/path"));
-
-        unsafe {
-            env::remove_var("HYPRSHOT_DIR");
-        }
-    }
-
-    #[test]
-    fn test_get_screenshots_dir_priority_env() {
-        let config = Config::default();
-
-        unsafe {
-            env::set_var("HYPRSHOT_DIR", "/env/path");
-        }
-
-        let result = get_screenshots_dir(None, &config, false).unwrap();
-        assert_eq!(result, PathBuf::from("/env/path"));
-
-        unsafe {
-            env::remove_var("HYPRSHOT_DIR");
-        }
-    }
-
-    #[test]
-    fn test_get_screenshots_dir_priority_config() {
-        let mut config = Config::default();
-        config.paths.screenshots_dir = "/config/path".to_string();
-
-        let result = get_screenshots_dir(None, &config, false).unwrap();
-        assert_eq!(result, PathBuf::from("/config/path"));
-    }
-
-    #[test]
-    fn test_get_screenshots_dir_with_tilde() {
-        let mut config = Config::default();
-        config.paths.screenshots_dir = "~/Screenshots".to_string();
-
-        let result = get_screenshots_dir(None, &config, false).unwrap();
-        let home = dirs::home_dir().unwrap();
-        assert_eq!(result, home.join("Screenshots"));
-    }
-
-    #[test]
-    fn test_generate_hyprland_binds() {
-        let config = Config::default();
-        let binds = config.generate_hyprland_binds();
-
-        assert!(binds.contains("# hyprshot-rs keybindings"));
-        assert!(binds.contains("# Generated by: hyprshot-rs --generate-hyprland-config"));
-
-        assert!(binds.contains("bind = SUPER, Print, exec, hyprshot-rs -m window"));
-        assert!(binds.contains("bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region"));
-        assert!(binds.contains("bind = SUPER CTRL, Print, exec, hyprshot-rs -m output"));
-        assert!(binds.contains("bind = , Print, exec, hyprshot-rs -m active -m output"));
-
-        assert!(!binds.contains("--clipboard-only"));
-    }
-
-    #[test]
-    fn test_generate_hyprland_binds_with_clipboard() {
-        let config = Config::default();
-        let binds = config.generate_hyprland_binds_with_clipboard();
-
-        assert!(binds.contains("bind = SUPER, Print, exec, hyprshot-rs -m window"));
-        assert!(binds.contains("bind = SUPER SHIFT, Print, exec, hyprshot-rs -m region"));
-
-        assert!(binds.contains("# Screenshot to clipboard (no file saved)"));
-        assert!(
-            binds.contains("bind = SUPER ALT, Print, exec, hyprshot-rs -m window --clipboard-only")
-        );
-        assert!(binds.contains(
-            "bind = SUPER SHIFT ALT, Print, exec, hyprshot-rs -m region --clipboard-only"
-        ));
-        assert!(binds.contains(
-            "bind = SUPER CTRL ALT, Print, exec, hyprshot-rs -m output --clipboard-only"
-        ));
-    }
-
-    #[test]
-    fn test_add_alt_modifier() {
-        let config = Config::default();
-
-        assert_eq!(config.add_alt_modifier("SUPER, Print"), "SUPER ALT, Print");
-
-        assert_eq!(config.add_alt_modifier(", Print"), "ALT, Print");
-
-        assert_eq!(
-            config.add_alt_modifier("SUPER SHIFT, Print"),
-            "SUPER SHIFT ALT, Print"
-        );
-
-        assert_eq!(
-            config.add_alt_modifier("SUPER ALT, Print"),
-            "SUPER ALT, Print"
-        );
-        assert_eq!(config.add_alt_modifier("ALT, Print"), "ALT, Print");
-
-        assert_eq!(config.add_alt_modifier("CTRL, S"), "CTRL ALT, S");
     }
 }

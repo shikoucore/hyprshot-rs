@@ -865,7 +865,6 @@ dependencies = [
  "directories",
  "dirs",
  "grim-rs",
- "image",
  "memmap2",
  "notify-rust",
  "serde",

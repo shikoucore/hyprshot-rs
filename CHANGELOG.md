@@ -9,10 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Freeze implementation**: Replaced hyprpicker-based freeze with native Wayland layer-shell overlay.
+- **Output-by-name (Wayland)**: `-m output -m NAME` now resolves outputs via Wayland enumeration (no hyprctl validation in CLI).
+- **Freeze memory usage**: Capture is performed per-output to reduce peak RAM on multi-monitor setups.
 
 ### Fixed
 - **Freeze portability**: Added geometry-based output matching fallback when output names are unavailable.
 - **Freeze robustness**: Gracefully disables freeze if required Wayland protocols are missing (with clear user message).
+- **Freeze input handling**: Overlay is input-transparent to avoid blocking selection.
+- **Freeze scaling**: Better handling of fractional scaling and logical output sizes.
+- **Region guidance**: Clearer prompt when region selection is cancelled or not drawn.
+- **More reliable saves**: Clipboard/notification errors no longer break successful captures (except `--clipboard-only`).
+- **Hanging commands**: Added safeguards so external tools don’t freeze the app.
+- **Cross‑compositor trim**: Window crops now rely on Wayland outputs instead of compositor‑specific tools.
+- **Hyprctl calls**: Reduced repeated monitor queries during a single run.
+- **Delay accuracy**: `delay_ms` now respects milliseconds instead of rounding to seconds.
+- **Notification timeout**: `--notif-timeout` always respects the value you pass (including 5000).
+- **Filename collisions**: Reduced the chance of overwriting when taking multiple screenshots quickly.
+- **Format clarity**: PNG is the only supported format, avoiding confusing options.
+- **Clipboard performance**: Faster clipboard copy without extra disk reads.
+- **Startup I/O**: Reduced unnecessary disk writes during normal runs.
+- **Window selection**: More accurate window lists on multi‑workspace setups.
+- **Build reliability**: Slurp embedding failures no longer break builds.
+- **Embedded slurp safety**: Atomic updates with locking and integrity checks.
+- **Geometry handling**: More consistent capture processing across modes.
 
 ## [release 0.1.5] 2026-01-29
 
