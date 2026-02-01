@@ -28,6 +28,41 @@ fn get_slurp_path() -> Result<std::path::PathBuf> {
     Ok(std::path::PathBuf::from("slurp"))
 }
 
+pub struct HyprctlCache {
+    monitors: Option<Value>,
+}
+
+impl HyprctlCache {
+    pub fn new() -> Self {
+        Self { monitors: None }
+    }
+}
+
+fn hyprctl_monitors_json<'a>(
+    cache: &'a mut HyprctlCache,
+    timeout: Duration,
+) -> Result<&'a Value> {
+    if cache.monitors.is_none() {
+        let output = output_with_timeout(
+            {
+                let mut cmd = Command::new("hyprctl");
+                cmd.arg("monitors").arg("-j");
+                cmd
+            },
+            timeout,
+        )
+        .context("Failed to run hyprctl monitors")?;
+        let monitors: Value =
+            serde_json::from_slice(&output.stdout).context("Failed to parse hyprctl monitors")?;
+        cache.monitors = Some(monitors);
+    }
+
+    Ok(cache
+        .monitors
+        .as_ref()
+        .context("Hyprctl monitors cache missing")?)
+}
+
 pub fn grab_output(debug: bool) -> Result<Geometry> {
     let slurp_path = get_slurp_path()?;
 
@@ -55,8 +90,8 @@ pub fn grab_output(debug: bool) -> Result<Geometry> {
 // - region/output: Wayland-wide via slurp
 // - output by name: Wayland enumeration (no hyprctl)
 // - window/active: Hyprland and Sway (hyprctl/swaymsg)
-pub fn grab_active_output(debug: bool) -> Result<Geometry> {
-    if let Ok(geometry) = grab_active_output_hyprctl(debug) {
+pub fn grab_active_output(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry> {
+    if let Ok(geometry) = grab_active_output_hyprctl(debug, cache) {
         return Ok(geometry);
     }
     if let Ok(geometry) = grab_active_output_sway(debug) {
@@ -68,7 +103,7 @@ pub fn grab_active_output(debug: bool) -> Result<Geometry> {
     ))
 }
 
-fn grab_active_output_hyprctl(debug: bool) -> Result<Geometry> {
+fn grab_active_output_hyprctl(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry> {
     const IPC_TIMEOUT: Duration = Duration::from_secs(3);
     let active_workspace: Value = serde_json::from_slice(
         &output_with_timeout(
@@ -82,18 +117,7 @@ fn grab_active_output_hyprctl(debug: bool) -> Result<Geometry> {
         .context("Failed to run hyprctl activeworkspace")?
         .stdout,
     )?;
-    let monitors: Value = serde_json::from_slice(
-        &output_with_timeout(
-            {
-                let mut cmd = Command::new("hyprctl");
-                cmd.arg("monitors").arg("-j");
-                cmd
-            },
-            IPC_TIMEOUT,
-        )
-        .context("Failed to run hyprctl monitors")?
-        .stdout,
-    )?;
+    let monitors = hyprctl_monitors_json(cache, IPC_TIMEOUT)?;
 
     if debug {
         eprintln!("Monitors: {}", monitors);
@@ -422,8 +446,8 @@ pub fn grab_region(debug: bool) -> Result<Geometry> {
     geometry.parse()
 }
 
-pub fn grab_window(debug: bool) -> Result<Geometry> {
-    if let Ok(geometry) = grab_window_hyprctl(debug) {
+pub fn grab_window(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry> {
+    if let Ok(geometry) = grab_window_hyprctl(debug, cache) {
         return Ok(geometry);
     }
     if let Ok(geometry) = grab_window_sway(debug) {
@@ -435,20 +459,9 @@ pub fn grab_window(debug: bool) -> Result<Geometry> {
     ))
 }
 
-fn grab_window_hyprctl(debug: bool) -> Result<Geometry> {
+fn grab_window_hyprctl(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry> {
     const IPC_TIMEOUT: Duration = Duration::from_secs(3);
-    let monitors: Value = serde_json::from_slice(
-        &output_with_timeout(
-            {
-                let mut cmd = Command::new("hyprctl");
-                cmd.arg("monitors").arg("-j");
-                cmd
-            },
-            IPC_TIMEOUT,
-        )
-        .context("Failed to run hyprctl monitors")?
-        .stdout,
-    )?;
+    let monitors = hyprctl_monitors_json(cache, IPC_TIMEOUT)?;
     let clients: Value = serde_json::from_slice(
         &output_with_timeout(
             {

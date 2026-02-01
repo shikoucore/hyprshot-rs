@@ -284,10 +284,12 @@ fn main() -> Result<()> {
         sleep(delay);
     }
 
+    let mut hyprctl_cache = capture::HyprctlCache::new();
+
     let geometry = match option {
         Mode::Output => {
             if current {
-                capture::grab_active_output(debug)?
+                capture::grab_active_output(debug, &mut hyprctl_cache)?
             } else if let Some(monitor) = selected_monitor {
                 capture::grab_selected_output(&monitor, debug)?
             } else {
@@ -312,7 +314,7 @@ fn main() -> Result<()> {
             let geo = if current {
                 capture::grab_active_window(debug)?
             } else {
-                capture::grab_window(debug)?
+                capture::grab_window(debug, &mut hyprctl_cache)?
             };
             utils::trim(&geo, debug)?
         }
