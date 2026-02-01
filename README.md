@@ -10,8 +10,6 @@
 
 # Hyprshot-rs
 
----
-
 ## release version 0.1.5
 
 [CHANGELOG](/CHANGELOG.md)
