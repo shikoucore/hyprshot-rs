@@ -265,7 +265,9 @@ fn main() -> Result<()> {
         save_dir
     };
 
-    let filename = args.filename.unwrap_or_else(|| default_filename(Local::now()));
+    let filename = args
+        .filename
+        .unwrap_or_else(|| default_filename(Local::now()));
     let save_fullpath = save_dir.join(&filename);
 
     if debug && !clipboard_only {
@@ -317,6 +319,10 @@ fn main() -> Result<()> {
         _ => unreachable!(),
     };
 
+    if let Some(guard) = freeze_guard {
+        guard.stop()?;
+    }
+
     save::save_geometry(
         &geometry,
         &save_fullpath,
@@ -327,10 +333,6 @@ fn main() -> Result<()> {
         notif_timeout,
         debug,
     )?;
-
-    if let Some(guard) = freeze_guard {
-        guard.stop()?;
-    }
 
     Ok(())
 }

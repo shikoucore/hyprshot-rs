@@ -4,9 +4,11 @@ use std::{
     collections::HashSet,
     io::Write,
     process::{Command, Stdio},
+    time::Duration,
 };
 
 use crate::geometry::Geometry;
+use crate::utils::output_with_timeout;
 
 #[cfg(feature = "freeze")]
 use wayland_client::{
@@ -67,21 +69,30 @@ pub fn grab_active_output(debug: bool) -> Result<Geometry> {
 }
 
 fn grab_active_output_hyprctl(debug: bool) -> Result<Geometry> {
+    const IPC_TIMEOUT: Duration = Duration::from_secs(3);
     let active_workspace: Value = serde_json::from_slice(
-        &Command::new("hyprctl")
-            .arg("activeworkspace")
-            .arg("-j")
-            .output()
-            .context("Failed to run hyprctl activeworkspace")?
-            .stdout,
+        &output_with_timeout(
+            {
+                let mut cmd = Command::new("hyprctl");
+                cmd.arg("activeworkspace").arg("-j");
+                cmd
+            },
+            IPC_TIMEOUT,
+        )
+        .context("Failed to run hyprctl activeworkspace")?
+        .stdout,
     )?;
     let monitors: Value = serde_json::from_slice(
-        &Command::new("hyprctl")
-            .arg("monitors")
-            .arg("-j")
-            .output()
-            .context("Failed to run hyprctl monitors")?
-            .stdout,
+        &output_with_timeout(
+            {
+                let mut cmd = Command::new("hyprctl");
+                cmd.arg("monitors").arg("-j");
+                cmd
+            },
+            IPC_TIMEOUT,
+        )
+        .context("Failed to run hyprctl monitors")?
+        .stdout,
     )?;
 
     if debug {
@@ -425,21 +436,30 @@ pub fn grab_window(debug: bool) -> Result<Geometry> {
 }
 
 fn grab_window_hyprctl(debug: bool) -> Result<Geometry> {
+    const IPC_TIMEOUT: Duration = Duration::from_secs(3);
     let monitors: Value = serde_json::from_slice(
-        &Command::new("hyprctl")
-            .arg("monitors")
-            .arg("-j")
-            .output()
-            .context("Failed to run hyprctl monitors")?
-            .stdout,
+        &output_with_timeout(
+            {
+                let mut cmd = Command::new("hyprctl");
+                cmd.arg("monitors").arg("-j");
+                cmd
+            },
+            IPC_TIMEOUT,
+        )
+        .context("Failed to run hyprctl monitors")?
+        .stdout,
     )?;
     let clients: Value = serde_json::from_slice(
-        &Command::new("hyprctl")
-            .arg("clients")
-            .arg("-j")
-            .output()
-            .context("Failed to run hyprctl clients")?
-            .stdout,
+        &output_with_timeout(
+            {
+                let mut cmd = Command::new("hyprctl");
+                cmd.arg("clients").arg("-j");
+                cmd
+            },
+            IPC_TIMEOUT,
+        )
+        .context("Failed to run hyprctl clients")?
+        .stdout,
     )?;
 
     // Use exact workspace ID matching to avoid substring collisions (e.g., "2" vs "12").
@@ -555,13 +575,18 @@ pub fn grab_active_window(debug: bool) -> Result<Geometry> {
 }
 
 fn grab_active_window_hyprctl(debug: bool) -> Result<Geometry> {
+    const IPC_TIMEOUT: Duration = Duration::from_secs(3);
     let active_window: Value = serde_json::from_slice(
-        &Command::new("hyprctl")
-            .arg("activewindow")
-            .arg("-j")
-            .output()
-            .context("Failed to run hyprctl activewindow")?
-            .stdout,
+        &output_with_timeout(
+            {
+                let mut cmd = Command::new("hyprctl");
+                cmd.arg("activewindow").arg("-j");
+                cmd
+            },
+            IPC_TIMEOUT,
+        )
+        .context("Failed to run hyprctl activewindow")?
+        .stdout,
     )?;
 
     if debug {
@@ -765,10 +790,16 @@ fn find_focused_window<'a>(node: &'a Value) -> Option<&'a Value> {
 }
 
 fn sway_msg(args: &[&str]) -> Result<Value> {
-    let output = Command::new("swaymsg")
-        .args(args)
-        .output()
-        .context("Failed to run swaymsg")?;
+    const IPC_TIMEOUT: Duration = Duration::from_secs(3);
+    let output = output_with_timeout(
+        {
+            let mut cmd = Command::new("swaymsg");
+            cmd.args(args);
+            cmd
+        },
+        IPC_TIMEOUT,
+    )
+    .context("Failed to run swaymsg")?;
     if !output.status.success() {
         return Err(anyhow::anyhow!(
             "swaymsg failed: {}",

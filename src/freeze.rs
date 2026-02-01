@@ -11,9 +11,10 @@ mod imp {
         time::Duration,
     };
     use wayland_client::{
-        Connection, Dispatch, QueueHandle,
+        Connection, Dispatch, EventQueue, QueueHandle,
         protocol::{
             wl_buffer::WlBuffer,
+            wl_callback,
             wl_compositor::WlCompositor,
             wl_output::Mode as WlOutputMode,
             wl_output::WlOutput,
@@ -77,20 +78,19 @@ mod imp {
         let selected_output = selected_output.map(str::to_string);
         let join = thread::spawn(move || run_freeze(selected_output, stop_rx, ready_tx, debug));
 
-        match ready_rx.recv_timeout(Duration::from_secs(2)) {
+        match ready_rx.recv_timeout(Duration::from_millis(200)) {
             Ok(Ok(())) => Ok(FreezeGuard {
                 stop_tx,
                 join: Some(join),
             }),
             Ok(Err(err)) => {
-                eprintln!("Freeze отключен: {}", err);
+                eprintln!("Freeze disabled: {}", err);
                 Ok(FreezeGuard {
                     stop_tx,
                     join: None,
                 })
             }
             Err(_) => {
-                eprintln!("Freeze отключен: не удалось инициализировать overlay (timeout).");
                 Ok(FreezeGuard {
                     stop_tx,
                     join: None,
@@ -137,6 +137,7 @@ mod imp {
         xdg_output_manager: Option<ZxdgOutputManagerV1>,
         outputs: Vec<OutputEntry>,
         surfaces: Vec<SurfaceEntry>,
+        frame_done: bool,
     }
 
     impl Dispatch<WlRegistry, ()> for State {
@@ -413,6 +414,7 @@ mod imp {
             xdg_output_manager: None,
             outputs: Vec::new(),
             surfaces: Vec::new(),
+            frame_done: false,
         };
 
         event_queue
@@ -432,9 +434,16 @@ mod imp {
         let compositor = state
             .compositor
             .as_ref()
-            .context("wl_compositor not available")?;
-        let shm = state.shm.as_ref().context("wl_shm not available")?;
-        let Some(layer_shell) = state.layer_shell.as_ref() else {
+            .context("wl_compositor not available")?
+            .clone();
+        let shm = state
+            .shm
+            .as_ref()
+            .context("wl_shm not available")?
+            .clone();
+        let layer_shell = match state.layer_shell.as_ref() {
+            Some(shell) => shell.clone(),
+            None => {
             // FIXME: нужно проверить поддержку wlr-layer-shell на Hyprland/Sway/River/Wayfire.
             eprintln!(
                 "Freeze is disabled: compositor does not support wlr-layer-shell. \
@@ -442,7 +451,16 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             );
             let _ = ready_tx.send(Ok(()));
             return Ok(());
+            }
         };
+
+        // Sync with the next compositor frame before capturing outputs to avoid
+        // stale selection UI from a previous run.
+        if let Err(err) = sync_next_frame(&mut event_queue, &qh, &compositor, &mut state) {
+            if debug {
+                eprintln!("Freeze frame sync failed: {}", err);
+            }
+        }
 
         let mut grim = match Grim::new() {
             Ok(grim) => grim,
@@ -460,6 +478,11 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
                 return Ok(());
             }
         };
+
+        if stop_rx.try_recv().is_ok() {
+            let _ = ready_tx.send(Ok(()));
+            return Ok(());
+        }
 
         let grim_outputs = grim
             .get_outputs()
@@ -486,6 +509,10 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
         }
 
         for (idx, meta_index) in mapping.into_iter().enumerate() {
+            if stop_rx.try_recv().is_ok() {
+                let _ = ready_tx.send(Ok(()));
+                return Ok(());
+            }
             let Some(meta_index) = meta_index else {
                 continue;
             };
@@ -545,7 +572,7 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
 
             surface.commit();
 
-            let (buffer, tmp, mmap) = create_buffer(shm, &qh, &capture).with_context(|| {
+            let (buffer, tmp, mmap) = create_buffer(&shm, &qh, &capture).with_context(|| {
                 format!(
                     "Failed to create buffer for output '{}'",
                     output.name.as_deref().unwrap_or(&meta.name)
@@ -603,6 +630,44 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
         Ok(())
     }
 
+    struct FrameSync;
+
+    impl Dispatch<wl_callback::WlCallback, FrameSync> for State {
+        fn event(
+            state: &mut Self,
+            callback: &wl_callback::WlCallback,
+            event: wl_callback::Event,
+            _: &FrameSync,
+            _: &Connection,
+            _: &QueueHandle<Self>,
+        ) {
+            if let wl_callback::Event::Done { .. } = event {
+                state.frame_done = true;
+                let _ = callback;
+            }
+        }
+    }
+
+    fn sync_next_frame(
+        event_queue: &mut EventQueue<State>,
+        qh: &QueueHandle<State>,
+        compositor: &WlCompositor,
+        state: &mut State,
+    ) -> Result<()> {
+        let surface = compositor.create_surface(qh, ());
+        state.frame_done = false;
+        surface.frame(qh, FrameSync);
+        surface.commit();
+
+        while !state.frame_done {
+            event_queue
+                .roundtrip(state)
+                .context("Failed to sync frame")?;
+        }
+
+        surface.destroy();
+        Ok(())
+    }
     fn create_buffer(
         shm: &WlShm,
         qh: &QueueHandle<State>,

@@ -1,6 +1,9 @@
 use anyhow::{Context, Result};
 use serde_json::Value;
-use std::process::Command;
+use std::io::Read;
+use std::process::{Child, Command, ExitStatus, Output, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use crate::geometry::Geometry;
 
@@ -20,7 +23,14 @@ pub fn trim(geometry: &Geometry, debug: bool) -> Result<Geometry> {
 
     let mut found = false;
 
-    if let Ok(monitors_output) = Command::new("hyprctl").arg("monitors").arg("-j").output() {
+    if let Ok(monitors_output) = output_with_timeout(
+        {
+            let mut cmd = Command::new("hyprctl");
+            cmd.arg("monitors").arg("-j");
+            cmd
+        },
+        Duration::from_secs(3),
+    ) {
         if let Ok(monitors) = serde_json::from_slice::<Value>(&monitors_output.stdout) {
             if let Some(monitor) = monitors.as_array().and_then(|arr| {
                 arr.iter().find(|m| {
@@ -41,11 +51,14 @@ pub fn trim(geometry: &Geometry, debug: bool) -> Result<Geometry> {
     }
 
     if !found {
-        if let Ok(outputs_output) = Command::new("swaymsg")
-            .arg("-t")
-            .arg("get_outputs")
-            .output()
-        {
+        if let Ok(outputs_output) = output_with_timeout(
+            {
+                let mut cmd = Command::new("swaymsg");
+                cmd.arg("-t").arg("get_outputs");
+                cmd
+            },
+            Duration::from_secs(3),
+        ) {
             if let Ok(outputs) = serde_json::from_slice::<Value>(&outputs_output.stdout) {
                 if let Some(output) = outputs.as_array().and_then(|arr| {
                     arr.iter().find(|o| {
@@ -122,4 +135,65 @@ pub fn trim(geometry: &Geometry, debug: bool) -> Result<Geometry> {
         eprintln!("Cropped geometry: {}", cropped);
     }
     Ok(cropped)
+}
+
+// Wait for a spawned process with a hard timeout; used for wl-copy in save.rs.
+pub fn wait_with_timeout(child: &mut Child, timeout: Duration) -> Result<ExitStatus> {
+    let start = Instant::now();
+    loop {
+        if let Some(status) = child.try_wait().context("Failed to poll process status")? {
+            return Ok(status);
+        }
+        if start.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(anyhow::anyhow!("Process timed out after {:?}", timeout));
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+// Run a short-lived command with a timeout and capture Output; used for hyprctl/swaymsg.
+pub fn output_with_timeout(mut cmd: Command, timeout: Duration) -> Result<Output> {
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = cmd.spawn().context("Failed to spawn command")?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .context("Failed to capture command stdout")?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .context("Failed to capture command stderr")?;
+    let out_handle = thread::spawn(move || -> std::io::Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        stdout.read_to_end(&mut buf)?;
+        Ok(buf)
+    });
+    let err_handle = thread::spawn(move || -> std::io::Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        stderr.read_to_end(&mut buf)?;
+        Ok(buf)
+    });
+    let status = match wait_with_timeout(&mut child, timeout) {
+        Ok(status) => status,
+        Err(err) => {
+            let _ = out_handle.join();
+            let _ = err_handle.join();
+            return Err(err);
+        }
+    };
+    let stdout = out_handle
+        .join()
+        .unwrap_or_else(|_| Ok(Vec::new()))
+        .context("Failed to read command stdout")?;
+    let stderr = err_handle
+        .join()
+        .unwrap_or_else(|_| Ok(Vec::new()))
+        .context("Failed to read command stderr")?;
+    Ok(Output {
+        status,
+        stdout,
+        stderr,
+    })
 }
