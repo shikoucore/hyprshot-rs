@@ -90,12 +90,10 @@ mod imp {
                     join: None,
                 })
             }
-            Err(_) => {
-                Ok(FreezeGuard {
-                    stop_tx,
-                    join: None,
-                })
-            }
+            Err(_) => Ok(FreezeGuard {
+                stop_tx,
+                join: None,
+            }),
         }
     }
 
@@ -436,21 +434,17 @@ mod imp {
             .as_ref()
             .context("wl_compositor not available")?
             .clone();
-        let shm = state
-            .shm
-            .as_ref()
-            .context("wl_shm not available")?
-            .clone();
+        let shm = state.shm.as_ref().context("wl_shm not available")?.clone();
         let layer_shell = match state.layer_shell.as_ref() {
             Some(shell) => shell.clone(),
             None => {
-            // FIXME: нужно проверить поддержку wlr-layer-shell на Hyprland/Sway/River/Wayfire.
-            eprintln!(
-                "Freeze is disabled: compositor does not support wlr-layer-shell. \
+                // FIXME: нужно проверить поддержку wlr-layer-shell на Hyprland/Sway/River/Wayfire.
+                eprintln!(
+                    "Freeze is disabled: compositor does not support wlr-layer-shell. \
 Check the support for this protocol on Hyprland/Sway/River/Wayfire."
-            );
-            let _ = ready_tx.send(Ok(()));
-            return Ok(());
+                );
+                let _ = ready_tx.send(Ok(()));
+                return Ok(());
             }
         };
 

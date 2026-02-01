@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Region guidance**: Clearer prompt when region selection is cancelled or not drawn.
 - **More reliable saves**: Clipboard/notification errors no longer break successful captures (except `--clipboard-only`).
 - **Hanging commands**: Added safeguards so external tools don’t freeze the app.
+- **Cross‑compositor trim**: Window crops now rely on Wayland outputs instead of compositor‑specific tools.
 - **Delay accuracy**: `delay_ms` now respects milliseconds instead of rounding to seconds.
 - **Notification timeout**: `--notif-timeout` always respects the value you pass (including 5000).
 - **Filename collisions**: Reduced the chance of overwriting when taking multiple screenshots quickly.
