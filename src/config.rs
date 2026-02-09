@@ -16,6 +16,8 @@ pub struct Config {
     pub capture: CaptureConfig,
     #[serde(default)]
     pub advanced: AdvancedConfig,
+    #[serde(default)]
+    pub windows: WindowsConfig,
 }
 
 /// Configuration for paths
@@ -79,7 +81,55 @@ pub struct AdvancedConfig {
     pub delay_ms: u32,
 }
 
+/// Windows-specific configuration
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WindowsConfig {
+    #[serde(default)]
+    pub hotkeys: WindowsHotkeysConfig,
+    #[serde(default)]
+    pub notifications: WindowsNotificationsConfig,
+    #[serde(default)]
+    pub behavior: WindowsBehaviorConfig,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WindowsHotkeysConfig {
+    #[serde(default = "default_windows_hotkey_region")]
+    pub region: String,
+    #[serde(default = "default_windows_hotkey_window")]
+    pub window: String,
+    #[serde(default = "default_windows_hotkey_output")]
+    pub output: String,
+    #[serde(default = "default_windows_hotkey_active_output")]
+    pub active_output: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WindowsNotificationsConfig {
+    #[serde(default = "default_windows_notifications_enabled")]
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WindowsBehaviorConfig {
+    #[serde(default = "default_windows_freeze_all_monitors")]
+    pub freeze_all_monitors: bool,
+    #[serde(default = "default_windows_autostart")]
+    pub autostart: bool,
+    #[serde(default = "default_windows_language")]
+    pub language: String,
+}
+
 // Default value functions for serde
+#[cfg(target_os = "windows")]
+fn default_screenshots_dir() -> String {
+    if let Some(dir) = dirs::picture_dir() {
+        return dir.join("Hyprshot").to_string_lossy().to_string();
+    }
+    "~/Pictures/Hyprshot".to_string()
+}
+
+#[cfg(not(target_os = "windows"))]
 fn default_screenshots_dir() -> String {
     "~/Pictures".to_string()
 }
@@ -110,6 +160,38 @@ fn default_notification_timeout() -> u32 {
 
 fn default_freeze() -> bool {
     true
+}
+
+fn default_windows_hotkey_region() -> String {
+    "Ctrl+Shift+S".to_string()
+}
+
+fn default_windows_hotkey_window() -> String {
+    "Alt+Shift+S".to_string()
+}
+
+fn default_windows_hotkey_output() -> String {
+    "Ctrl+Alt+S".to_string()
+}
+
+fn default_windows_hotkey_active_output() -> String {
+    "Shift+S".to_string()
+}
+
+fn default_windows_notifications_enabled() -> bool {
+    true
+}
+
+fn default_windows_freeze_all_monitors() -> bool {
+    false
+}
+
+fn default_windows_autostart() -> bool {
+    false
+}
+
+fn default_windows_language() -> String {
+    "en".to_string()
 }
 
 impl Default for PathsConfig {
@@ -149,6 +231,45 @@ impl Default for AdvancedConfig {
     }
 }
 
+impl Default for WindowsHotkeysConfig {
+    fn default() -> Self {
+        Self {
+            region: default_windows_hotkey_region(),
+            window: default_windows_hotkey_window(),
+            output: default_windows_hotkey_output(),
+            active_output: default_windows_hotkey_active_output(),
+        }
+    }
+}
+
+impl Default for WindowsNotificationsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_windows_notifications_enabled(),
+        }
+    }
+}
+
+impl Default for WindowsBehaviorConfig {
+    fn default() -> Self {
+        Self {
+            freeze_all_monitors: default_windows_freeze_all_monitors(),
+            autostart: default_windows_autostart(),
+            language: default_windows_language(),
+        }
+    }
+}
+
+impl Default for WindowsConfig {
+    fn default() -> Self {
+        Self {
+            hotkeys: WindowsHotkeysConfig::default(),
+            notifications: WindowsNotificationsConfig::default(),
+            behavior: WindowsBehaviorConfig::default(),
+        }
+    }
+}
+
 #[allow(clippy::derivable_impls)]
 impl Default for Config {
     fn default() -> Self {
@@ -157,6 +278,7 @@ impl Default for Config {
             hotkeys: HotkeysConfig::default(),
             capture: CaptureConfig::default(),
             advanced: AdvancedConfig::default(),
+            windows: WindowsConfig::default(),
         }
     }
 }
@@ -412,6 +534,14 @@ impl Config {
                 result.push_str("\n# Capture settings\n");
             } else if line.starts_with("[advanced]") {
                 result.push_str("\n# Advanced settings\n");
+            } else if line.starts_with("[windows]") {
+                result.push_str("\n# Windows-specific settings\n");
+            } else if line.starts_with("[windows.hotkeys]") {
+                result.push_str("\n# Windows hotkeys (change in UI)\n");
+            } else if line.starts_with("[windows.notifications]") {
+                result.push_str("\n# Windows notifications\n");
+            } else if line.starts_with("[windows.behavior]") {
+                result.push_str("\n# Windows behavior settings\n");
             }
 
             result.push_str(line);
@@ -423,6 +553,7 @@ impl Config {
 
     /// Generate Hyprland keybindings based on config
     /// Returns a String with bind statements ready to paste into hyprland.conf
+    #[cfg(not(target_os = "windows"))]
     pub fn generate_hyprland_binds(&self) -> String {
         let mut binds = String::new();
 
@@ -453,6 +584,7 @@ impl Config {
 
     /// Generate Hyprland keybindings with clipboard-only variants
     /// Adds additional bindings with ALT modifier for clipboard-only mode
+    #[cfg(not(target_os = "windows"))]
     pub fn generate_hyprland_binds_with_clipboard(&self) -> String {
         let mut binds = self.generate_hyprland_binds();
 
@@ -483,6 +615,7 @@ impl Config {
     ///   "SUPER, Print" -> "SUPER ALT, Print"
     ///   ", Print" -> "ALT, Print"
     ///   "CTRL, S" -> "CTRL ALT, S"
+    #[cfg(not(target_os = "windows"))]
     fn add_alt_modifier(&self, hotkey: &str) -> String {
         if let Some((modifiers, key)) = hotkey.split_once(',') {
             let modifiers = modifiers.trim();
@@ -502,6 +635,7 @@ impl Config {
 
     /// Install Hyprland bindings to hyprland.conf
     /// Returns the path where bindings were installed
+    #[cfg(not(target_os = "windows"))]
     pub fn install_hyprland_binds(&self, with_clipboard: bool) -> Result<PathBuf> {
         let hyprland_conf = dirs::home_dir()
             .context("Failed to get home directory")?
@@ -547,6 +681,7 @@ impl Config {
     }
 
     /// Get the path to Hyprland config file
+    #[cfg(not(target_os = "windows"))]
     pub fn hyprland_config_path() -> Result<PathBuf> {
         let path = dirs::home_dir()
             .context("Failed to get home directory")?

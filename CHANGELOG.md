@@ -5,6 +5,17 @@ All notable changes to hyprshot-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [release 0.1.6 - windows-beta] 
+
+### Windows 11 beta
+- **Windows 11 build**: First beta for Windows 11 (same version number 0.1.6).
+- **Tray app + settings**: All controls in tray with a dedicated settings window.
+- **Capture modes**: Region, window, monitor, and active monitor.
+- **Region selection**: Dimmed overlay with clear selection area and size hint.
+- **Window capture**: Visual highlight and auto‑raise for a clean full‑window capture.
+- **Saving & notifications**: Save folder control, optional notifications, and autostart.
+- **Theme**: Light/Dark toggle in settings.
+
 ## [release 0.1.6] 2026-02-02
 
 ### Changed
