@@ -5,16 +5,15 @@ All notable changes to hyprshot-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [0.1.7]
 
 ### Changed
-- **Selector API integration**: Default selector path now uses `slurp-rs` API instead of process `slurp` calls.
-- **Cancel handling**: Region cancel guidance now uses typed selector errors instead of string matching.
-- **grim-rs conversion**: Replaced geometry string round-trip with explicit `Geometry -> grim_rs::Box` conversion.
-- **Final migration**: Removed legacy embedded/system `slurp` fallback and vendored `slurp` sources.
-- **Build cleanup**: Removed legacy `build.rs` pipeline for embedded `slurp`.
+- **Selector backend**: Default selection flow uses `slurp-rs` API.
+- **Selection errors**: Region cancel guidance now uses typed selector errors.
+- **Geometry conversion**: Capture path uses explicit `Geometry -> grim_rs::Box` conversion.
+- **Runtime requirements**: Selection no longer depends on an external `slurp` binary.
 
-## [release 0.1.6] 2026-02-02
+## [0.1.6] 2026-02-02
 
 ### Changed
 - **Freeze implementation**: Replaced hyprpicker-based freeze with native Wayland layer-shell overlay.
@@ -42,12 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Embedded slurp safety**: Atomic updates with locking and integrity checks.
 - **Geometry handling**: More consistent capture processing across modes.
 
-## [release 0.1.5] 2026-01-29
+## [0.1.5] 2026-01-29
 
 ### Fixed
 - **CLI output names**: Allow OUTPUT_NAME in `-m` and correct help flag for `--notif-timeout`.
 
-## [release 0.1.4] 2026-01-24
+## [0.1.4] 2026-01-24
 
 ### Added
 - **Embedded slurp build**: Build and embed slurp during compilation with automatic fallback to system slurp
@@ -61,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Embedded slurp include path**: Generate `include_bytes!` via `OUT_DIR` to avoid broken absolute paths
 
-## [release 0.1.3] 2025-10-04
+## [0.1.3] 2025-10-04
 
 ### Added
 - **Configuration System**: Full TOML-based configuration with `~/.config/hyprshot-rs/config.toml`
@@ -95,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `directories` for XDG directory support
 - Added `dialoguer` for interactive CLI wizards
 
-## [release 0.1.2] 
+## [0.1.2] 
 
 ### Changed
 - **Replaced external grim dependency with grim-rs v0.1.2**: Integrated native Rust implementation of screenshot functionality
