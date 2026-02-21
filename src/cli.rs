@@ -58,7 +58,6 @@ pub struct Args {
     #[arg(last = true, help = "Command to open screenshot (e.g., 'mirage')")]
     pub command: Vec<String>,
 
-    // Config management commands
     #[arg(long, help = "Initialize default config file")]
     pub init_config: bool,
 
@@ -76,7 +75,6 @@ pub struct Args {
     )]
     pub set: Option<Vec<String>>,
 
-    // Hyprland integration commands
     #[arg(long, help = "Generate Hyprland keybindings")]
     pub generate_hyprland_config: bool,
 

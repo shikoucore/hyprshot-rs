@@ -6,12 +6,11 @@ mod capture;
 mod cli;
 mod config;
 mod config_cmds;
-#[cfg(target_os = "linux")]
-mod embedded_slurp;
 mod freeze;
 mod geometry;
 mod hyprland_cmds;
 mod save;
+mod selector;
 mod utils;
 pub use cli::{Args, Mode, default_filename, resolve_delay, resolve_notif_timeout};
 

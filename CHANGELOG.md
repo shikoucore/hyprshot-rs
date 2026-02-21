@@ -5,6 +5,15 @@ All notable changes to hyprshot-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [unreleased]
+
+### Changed
+- **Selector API integration**: Default selector path now uses `slurp-rs` API instead of process `slurp` calls.
+- **Cancel handling**: Region cancel guidance now uses typed selector errors instead of string matching.
+- **grim-rs conversion**: Replaced geometry string round-trip with explicit `Geometry -> grim_rs::Box` conversion.
+- **Final migration**: Removed legacy embedded/system `slurp` fallback and vendored `slurp` sources.
+- **Build cleanup**: Removed legacy `build.rs` pipeline for embedded `slurp`.
+
 ## [release 0.1.6] 2026-02-02
 
 ### Changed

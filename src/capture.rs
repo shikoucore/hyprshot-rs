@@ -1,13 +1,9 @@
 use anyhow::{Context, Result};
 use serde_json::Value;
-use std::{
-    collections::HashSet,
-    io::Write,
-    process::{Command, Stdio},
-    time::Duration,
-};
+use std::{collections::HashSet, process::Command, time::Duration};
 
 use crate::geometry::Geometry;
+use crate::selector;
 use crate::utils::output_with_timeout;
 
 #[cfg(feature = "freeze")]
@@ -19,14 +15,6 @@ use wayland_client::{
 use wayland_protocols::xdg::xdg_output::zv1::client::{
     zxdg_output_manager_v1::ZxdgOutputManagerV1, zxdg_output_v1::ZxdgOutputV1,
 };
-
-#[cfg(target_os = "linux")]
-use crate::embedded_slurp::get_slurp_path;
-
-#[cfg(not(target_os = "linux"))]
-fn get_slurp_path() -> Result<std::path::PathBuf> {
-    Ok(std::path::PathBuf::from("slurp"))
-}
 
 pub struct HyprctlCache {
     monitors: Option<Value>,
@@ -61,30 +49,11 @@ fn hyprctl_monitors_json(cache: &mut HyprctlCache, timeout: Duration) -> Result<
 }
 
 pub fn grab_output(debug: bool) -> Result<Geometry> {
-    let slurp_path = get_slurp_path()?;
-
-    let output = Command::new(slurp_path)
-        .arg("-or")
-        .output()
-        .context("Failed to run slurp")?;
-    if !output.status.success() {
-        return Err(anyhow::anyhow!("slurp failed to select output"));
-    }
-    let geometry = String::from_utf8(output.stdout)
-        .context("slurp output is not valid UTF-8")?
-        .trim()
-        .to_string();
-    if debug {
-        eprintln!("Output geometry: {}", geometry);
-    }
-    if geometry.is_empty() {
-        return Err(anyhow::anyhow!("slurp returned empty geometry"));
-    }
-    geometry.parse()
+    selector::select_output(debug)
 }
 
 // Support matrix:
-// - region/output: Wayland-wide via slurp
+// - region/output: Wayland-wide via slurp-rs API
 // - output by name: Wayland enumeration (no hyprctl)
 // - window/active: Hyprland and Sway (hyprctl/swaymsg)
 pub fn grab_active_output(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry> {
@@ -421,26 +390,11 @@ fn grab_selected_output_wayland(monitor: &str, debug: bool) -> Result<Geometry> 
 }
 
 pub fn grab_region(debug: bool) -> Result<Geometry> {
-    let slurp_path = get_slurp_path()?;
+    selector::select_region(debug)
+}
 
-    let output = Command::new(slurp_path)
-        .arg("-d")
-        .output()
-        .context("Failed to run slurp")?;
-    if !output.status.success() {
-        return Err(anyhow::anyhow!("slurp failed to select region"));
-    }
-    let geometry = String::from_utf8(output.stdout)
-        .context("slurp output is not valid UTF-8")?
-        .trim()
-        .to_string();
-    if debug {
-        eprintln!("Region geometry: {}", geometry);
-    }
-    if geometry.is_empty() {
-        return Err(anyhow::anyhow!("slurp returned empty geometry"));
-    }
-    geometry.parse()
+pub fn is_region_selection_cancelled(err: &anyhow::Error) -> bool {
+    selector::is_cancelled(err, selector::SelectionTarget::Region)
 }
 
 pub fn grab_window(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry> {
@@ -472,7 +426,6 @@ fn grab_window_hyprctl(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry
         .stdout,
     )?;
 
-    // Use exact workspace ID matching to avoid substring collisions (e.g., "2" vs "12").
     let workspace_ids: HashSet<i64> = monitors
         .as_array()
         .map(|arr| {
@@ -534,41 +487,7 @@ fn grab_window_hyprctl(debug: bool, cache: &mut HyprctlCache) -> Result<Geometry
         return Err(anyhow::anyhow!("No valid windows found to capture"));
     }
 
-    let slurp_path = get_slurp_path()?;
-
-    let mut slurp = Command::new(slurp_path)
-        .arg("-r")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .context("Failed to start slurp")?;
-
-    slurp
-        .stdin
-        .as_mut()
-        .unwrap()
-        .write_all(boxes.as_bytes())
-        .context("Failed to write to slurp stdin")?;
-
-    let output = slurp.wait_with_output().context("Failed to run slurp")?;
-    if !output.status.success() {
-        return Err(anyhow::anyhow!(
-            "slurp failed to select window: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-
-    let geometry = String::from_utf8(output.stdout)
-        .context("slurp output is not valid UTF-8")?
-        .trim()
-        .to_string();
-    if debug {
-        eprintln!("Window geometry: {}", geometry);
-    }
-    if geometry.is_empty() {
-        return Err(anyhow::anyhow!("slurp returned empty geometry"));
-    }
-    geometry.parse()
+    selector::select_from_boxes(&boxes, debug)
 }
 
 pub fn grab_active_window(debug: bool) -> Result<Geometry> {
@@ -654,38 +573,7 @@ fn grab_window_sway(debug: bool) -> Result<Geometry> {
         return Err(anyhow::anyhow!("No valid windows found to capture (sway)"));
     }
 
-    let slurp_path = get_slurp_path()?;
-    let mut slurp = Command::new(slurp_path)
-        .arg("-r")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .context("Failed to start slurp")?;
-
-    slurp
-        .stdin
-        .as_mut()
-        .unwrap()
-        .write_all(boxes.join("\n").as_bytes())
-        .context("Failed to write to slurp stdin")?;
-
-    let output = slurp.wait_with_output().context("Failed to run slurp")?;
-    if !output.status.success() {
-        return Err(anyhow::anyhow!(
-            "slurp failed to select window: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-
-    let geometry = String::from_utf8(output.stdout)
-        .context("slurp output is not valid UTF-8")?
-        .trim()
-        .to_string();
-    if geometry.is_empty() {
-        return Err(anyhow::anyhow!("slurp returned empty geometry"));
-    }
-
-    geometry.parse()
+    selector::select_from_boxes(&boxes.join("\n"), debug)
 }
 
 fn grab_active_window_sway(debug: bool) -> Result<Geometry> {

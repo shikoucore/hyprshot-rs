@@ -8,7 +8,7 @@ use std::{env, path::PathBuf};
 #[test]
 fn parse_output_name_mode() {
     let args = Args::parse_from(["hyprshot-rs", "-m", "output", "-m", "DP-1"]);
-    assert!(matches!(args.mode.get(0), Some(Mode::Output)));
+    assert!(matches!(args.mode.first(), Some(Mode::Output)));
     assert!(matches!(
         args.mode.get(1),
         Some(Mode::OutputName(name)) if name == "DP-1"
@@ -85,9 +85,150 @@ fn geometry_parses_and_validates() {
 }
 
 #[test]
+fn geometry_slurp_rect_roundtrip_preserves_values() {
+    let rect = slurp_rs::Rect {
+        x: 12,
+        y: 34,
+        width: 56,
+        height: 78,
+    };
+    let parsed = match crate::geometry::Geometry::from_slurp_rect(&rect) {
+        Ok(v) => v,
+        Err(err) => panic!("Failed to parse slurp rect: {}", err),
+    };
+    assert_eq!(parsed.x, 12);
+    assert_eq!(parsed.y, 34);
+    assert_eq!(parsed.width, 56);
+    assert_eq!(parsed.height, 78);
+}
+
+#[cfg(feature = "grim")]
+#[test]
+fn geometry_to_grim_box_preserves_values() {
+    let geometry = match crate::geometry::Geometry::new(10, 20, 300, 400) {
+        Ok(v) => v,
+        Err(err) => panic!("Failed to construct geometry: {}", err),
+    };
+    let grim_box = crate::save::to_grim_box(&geometry);
+    assert_eq!(grim_box.x(), 10);
+    assert_eq!(grim_box.y(), 20);
+    assert_eq!(grim_box.width(), 300);
+    assert_eq!(grim_box.height(), 400);
+}
+
+#[test]
+fn freeze_module_does_not_depend_on_selector() {
+    let freeze_src = include_str!("freeze.rs");
+    assert!(!freeze_src.contains("crate::selector"));
+    assert!(!freeze_src.contains("selector::"));
+}
+
+#[test]
+fn region_cancel_detection_is_typed() {
+    let typed_region_cancel: anyhow::Error =
+        crate::selector::SelectorError::Cancelled(crate::selector::SelectionTarget::Region).into();
+    assert!(crate::capture::is_region_selection_cancelled(
+        &typed_region_cancel
+    ));
+
+    let typed_output_cancel: anyhow::Error =
+        crate::selector::SelectorError::Cancelled(crate::selector::SelectionTarget::Output).into();
+    assert!(!crate::capture::is_region_selection_cancelled(
+        &typed_output_cancel
+    ));
+
+    let legacy_string_error = anyhow::anyhow!("slurp failed to select region");
+    assert!(!crate::capture::is_region_selection_cancelled(
+        &legacy_string_error
+    ));
+}
+
+#[test]
+fn selector_parse_choice_boxes_parses_labels_and_blank_lines() {
+    let input = "\n10,20 300x400 Terminal App\n1,2 3x4\n";
+    let parsed = match crate::selector::parse_choice_boxes(input) {
+        Ok(v) => v,
+        Err(err) => panic!("Expected parsed boxes, got error: {err}"),
+    };
+
+    assert_eq!(parsed.len(), 2);
+    assert_eq!(
+        parsed[0].rect,
+        slurp_rs::Rect {
+            x: 10,
+            y: 20,
+            width: 300,
+            height: 400
+        }
+    );
+    assert_eq!(parsed[0].label.as_deref(), Some("Terminal App"));
+
+    assert_eq!(
+        parsed[1].rect,
+        slurp_rs::Rect {
+            x: 1,
+            y: 2,
+            width: 3,
+            height: 4
+        }
+    );
+    assert_eq!(parsed[1].label, None);
+}
+
+#[test]
+fn selector_parse_choice_boxes_rejects_invalid_input() {
+    let err = match crate::selector::parse_choice_boxes("10,20\n") {
+        Ok(_) => panic!("Expected parse error for invalid input"),
+        Err(err) => err,
+    };
+    assert!(err.to_string().contains("missing dimensions"));
+}
+
+#[test]
+fn selector_map_api_error_maps_cancel_to_typed_cancel() {
+    let err = crate::selector::map_api_error(
+        slurp_rs::SlurpError::Cancelled,
+        crate::selector::SelectionTarget::Region,
+    );
+    assert!(crate::selector::is_cancelled(
+        &err,
+        crate::selector::SelectionTarget::Region
+    ));
+    assert!(!crate::selector::is_cancelled(
+        &err,
+        crate::selector::SelectionTarget::Output
+    ));
+    assert_eq!(err.to_string(), "slurp failed to select region");
+}
+
+#[test]
+fn selector_map_api_error_maps_non_cancel_to_failed() {
+    let err = crate::selector::map_api_error(
+        slurp_rs::SlurpError::InvalidInput("bad".to_string()),
+        crate::selector::SelectionTarget::Window,
+    );
+    assert!(!crate::selector::is_cancelled(
+        &err,
+        crate::selector::SelectionTarget::Window
+    ));
+
+    let typed = match err.downcast_ref::<crate::selector::SelectorError>() {
+        Some(v) => v,
+        None => panic!("Expected SelectorError"),
+    };
+    match typed {
+        crate::selector::SelectorError::Cancelled(_) => panic!("Expected failed error"),
+        crate::selector::SelectorError::Failed { target, message } => {
+            assert_eq!(*target, crate::selector::SelectionTarget::Window);
+            assert!(message.contains("invalid input: bad"));
+        }
+    }
+}
+
+#[test]
 fn parse_active_output_mode_combo() {
     let args = Args::parse_from(["hyprshot-rs", "-m", "output", "-m", "active"]);
-    assert!(matches!(args.mode.get(0), Some(Mode::Output)));
+    assert!(matches!(args.mode.first(), Some(Mode::Output)));
     assert!(matches!(args.mode.get(1), Some(Mode::Active)));
 }
 
@@ -138,7 +279,7 @@ fn test_config_deserialization() {
     };
     assert_eq!(config.paths.screenshots_dir, "~/Documents");
     assert_eq!(config.hotkeys.window, "ALT, W");
-    assert_eq!(config.capture.notification, false);
+    assert!(!config.capture.notification);
     assert_eq!(config.advanced.delay_ms, 500);
 }
 

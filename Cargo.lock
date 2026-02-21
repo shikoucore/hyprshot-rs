@@ -915,6 +915,7 @@ dependencies = [
  "notify-rust",
  "serde",
  "serde_json",
+ "slurp-rs",
  "tempfile",
  "toml",
  "wayland-client",
@@ -1782,6 +1783,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "slurp-rs"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d69ad53b0e6fd68feb7729e0d58088954b0e866dfb5e6390ae169eb6ba2def21"
+dependencies = [
+ "memmap2",
+ "tempfile",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-wlr",
 ]
 
 [[package]]
