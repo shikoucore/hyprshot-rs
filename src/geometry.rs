@@ -30,6 +30,15 @@ impl Geometry {
             height,
         })
     }
+
+    pub fn from_slurp_rect(rect: &slurp_rs::Rect) -> Result<Self> {
+        Self::new(rect.x, rect.y, rect.width, rect.height)
+    }
+
+    #[cfg(feature = "grim")]
+    pub fn to_grim_box(self) -> grim_rs::Box {
+        grim_rs::Box::new(self.x, self.y, self.width, self.height)
+    }
 }
 
 impl FromStr for Geometry {

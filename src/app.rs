@@ -156,7 +156,7 @@ pub fn run(mut args: Args) -> Result<()> {
         Mode::Region => match capture::grab_region(debug) {
             Ok(geo) => geo,
             Err(err) => {
-                if !silent && err.to_string().contains("slurp failed to select region") {
+                if !silent && capture::is_region_selection_cancelled(&err) {
                     let _ = Notification::new()
                         .summary("Region mode")
                         .body("Drag to select an area (not a window/output).")

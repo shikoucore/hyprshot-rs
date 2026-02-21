@@ -10,7 +10,7 @@
 
 # Hyprshot-rs
 
-## release version 0.1.6
+## 0.1.7
 
 [CHANGELOG](/CHANGELOG.md)
 
@@ -48,7 +48,7 @@ A utility to easily take screenshots on Wayland (tested on Hyprland and Sway).
 cargo install hyprshot-rs
 ```
 
-Note: `cargo install` builds from source. For the embedded slurp path to be available, the build needs `meson`, `ninja`, and slurp build dependencies (Wayland/Cairo/xkbcommon). If those aren't present, install system `slurp` and hyprshot-rs will use it automatically.
+Note: `cargo install` builds from source. Selector functionality is provided by `slurp-rs` directly, so no external `slurp` binary is required.
 
 ### Via AUR (Arch Linux):
 
@@ -75,7 +75,7 @@ On Arch Linux (example):
 sudo pacman -S wl-clipboard hyprland
 ```
 
-> **Note:** hyprshot-rs prefers system `slurp` if it’s installed. If it isn’t, the embedded slurp (when available in the build) is used automatically.
+> **Note:** selector functionality is fully provided by `slurp-rs` API.
 
 ---
 
@@ -99,7 +99,7 @@ Note: `active` is a modifier and must be combined with `output` or `window`.
 
 ## Compatibility
 
-- `region` and `output` work on Wayland without `hyprctl` (via `slurp`).
+- `region` and `output` work on Wayland without `hyprctl` (via `slurp-rs` API backend).
 - `output -m DP-1` works without `hyprctl` (Wayland output enumeration).
 - `window` and `active` are supported on **Hyprland** and **Sway** only (via `hyprctl`/`swaymsg`).
 

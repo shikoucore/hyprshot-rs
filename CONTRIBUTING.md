@@ -11,7 +11,7 @@ how we work and what we expect for contributions to be accepted.
 ## Development Requirements
 - Wayland compositor (Hyprland or Sway recommended).
 - Tools: `cargo`, `rustfmt`, `clippy`.
-- Runtime deps for testing: `wl-clipboard`, `slurp` (system or embedded path).
+- Runtime deps for testing: `wl-clipboard` (external `slurp` is not required).
 
 ## Quick Start
 - Fork the repo and create a feature branch.

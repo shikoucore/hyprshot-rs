@@ -9,6 +9,11 @@ use crate::geometry::Geometry;
 use crate::utils::wait_with_timeout;
 
 #[cfg(feature = "grim")]
+pub(crate) fn to_grim_box(geometry: &Geometry) -> grim_rs::Box {
+    (*geometry).to_grim_box()
+}
+
+#[cfg(feature = "grim")]
 #[allow(clippy::too_many_arguments)]
 pub fn save_geometry_with_grim(
     geometry: &Geometry,
@@ -26,10 +31,7 @@ pub fn save_geometry_with_grim(
         eprintln!("Saving geometry with grim-rs library: {}", geometry);
     }
 
-    let region: grim_rs::Box = geometry
-        .to_string()
-        .parse()
-        .context("Failed to parse geometry into grim-rs::Box")?;
+    let region = to_grim_box(geometry);
 
     let mut grim = grim_rs::Grim::new().context("Failed to initialize grim-rs")?;
 
