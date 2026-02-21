@@ -41,7 +41,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y meson ninja-build pkg-config \
-          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev
+          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev libxcursor-dev
     - name: Run clippy
       run: cargo clippy --locked -- -D warnings
 
@@ -60,7 +60,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y meson ninja-build pkg-config \
-          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev
+          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev libxcursor-dev
     - name: Run tests
       run: cargo test --locked
 
@@ -79,7 +79,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y meson ninja-build pkg-config \
-          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev
+          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev libxcursor-dev
     - name: Build
       run: cargo build --release --locked
 
@@ -102,7 +102,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y meson ninja-build pkg-config \
-          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev
+          libcairo2-dev libwayland-dev wayland-protocols libxkbcommon-dev libxcursor-dev
 
     - name: Build release binary
       run: cargo build --release --locked
