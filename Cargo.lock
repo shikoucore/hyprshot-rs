@@ -849,9 +849,9 @@ dependencies = [
 
 [[package]]
 name = "grim-rs"
-version = "0.1.5"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ca0b7bb086343beea44404e4b5c7d02e8e82cd1b4cf1fe832205d17a4b07c0"
+checksum = "a6c13b07d7c22d115c062cc841fe486618c176e50ae90dbd246f0ceac9cf828f"
 dependencies = [
  "chrono",
  "image",
@@ -902,7 +902,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hyprshot-rs"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "chrono",
