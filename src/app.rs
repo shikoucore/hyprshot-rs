@@ -132,7 +132,14 @@ pub fn run(mut args: Args) -> Result<()> {
     }
 
     let freeze_guard: Option<freeze::FreezeGuard> = if freeze {
-        Some(freeze::start_freeze(selected_monitor.as_deref(), debug)?)
+        if debug {
+            eprintln!("Freeze requested: starting overlay thread");
+        }
+        let guard = freeze::start_freeze(selected_monitor.as_deref(), debug)?;
+        if debug {
+            eprintln!("Freeze guard acquired");
+        }
+        Some(guard)
     } else {
         None
     };

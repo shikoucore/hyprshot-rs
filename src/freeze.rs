@@ -11,10 +11,9 @@ mod imp {
         time::Duration,
     };
     use wayland_client::{
-        Connection, Dispatch, EventQueue, QueueHandle,
+        Connection, Dispatch, QueueHandle,
         protocol::{
             wl_buffer::WlBuffer,
-            wl_callback,
             wl_compositor::WlCompositor,
             wl_output::Mode as WlOutputMode,
             wl_output::WlOutput,
@@ -76,24 +75,51 @@ mod imp {
         let (ready_tx, ready_rx) = mpsc::channel();
 
         let selected_output = selected_output.map(str::to_string);
-        let join = thread::spawn(move || run_freeze(selected_output, stop_rx, ready_tx, debug));
+        let mut join = Some(thread::spawn(move || {
+            run_freeze(selected_output, stop_rx, ready_tx, debug)
+        }));
+        const FREEZE_READY_TIMEOUT: Duration = Duration::from_secs(5);
 
-        match ready_rx.recv_timeout(Duration::from_millis(200)) {
-            Ok(Ok(())) => Ok(FreezeGuard {
-                stop_tx,
-                join: Some(join),
-            }),
+        match ready_rx.recv_timeout(FREEZE_READY_TIMEOUT) {
+            Ok(Ok(())) => {
+                if debug {
+                    eprintln!("Freeze overlay initialized");
+                }
+                Ok(FreezeGuard { stop_tx, join })
+            }
             Ok(Err(err)) => {
                 eprintln!("Freeze disabled: {}", err);
+                if let Some(join) = join.take() {
+                    let _ = join.join();
+                }
                 Ok(FreezeGuard {
                     stop_tx,
                     join: None,
                 })
             }
-            Err(_) => Ok(FreezeGuard {
-                stop_tx,
-                join: None,
-            }),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                let _ = stop_tx.send(());
+                if debug {
+                    eprintln!(
+                        "Freeze startup timed out after {:?}; proceeding with explicit error",
+                        FREEZE_READY_TIMEOUT
+                    );
+                }
+                Err(anyhow::anyhow!(
+                    "Freeze initialization timed out after {:?}",
+                    FREEZE_READY_TIMEOUT
+                ))
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                if let Some(join) = join.take() {
+                    match join.join() {
+                        Ok(Ok(())) => {}
+                        Ok(Err(err)) => return Err(err),
+                        Err(_) => return Err(anyhow::anyhow!("Freeze thread panicked")),
+                    }
+                }
+                Err(anyhow::anyhow!("Freeze initialization channel disconnected"))
+            }
         }
     }
 
@@ -135,7 +161,6 @@ mod imp {
         xdg_output_manager: Option<ZxdgOutputManagerV1>,
         outputs: Vec<OutputEntry>,
         surfaces: Vec<SurfaceEntry>,
-        frame_done: bool,
     }
 
     impl Dispatch<WlRegistry, ()> for State {
@@ -399,6 +424,9 @@ mod imp {
         ready_tx: mpsc::Sender<Result<()>>,
         debug: bool,
     ) -> Result<()> {
+        if debug {
+            eprintln!("Freeze: connect to Wayland");
+        }
         let conn = Connection::connect_to_env().context("Failed to connect to Wayland")?;
         let mut event_queue = conn.new_event_queue();
         let qh = event_queue.handle();
@@ -412,12 +440,14 @@ mod imp {
             xdg_output_manager: None,
             outputs: Vec::new(),
             surfaces: Vec::new(),
-            frame_done: false,
         };
 
         event_queue
             .roundtrip(&mut state)
             .context("Failed to initialize Wayland globals")?;
+        if debug {
+            eprintln!("Freeze: Wayland globals initialized");
+        }
 
         if let Some(manager) = &state.xdg_output_manager {
             for (idx, entry) in state.outputs.iter_mut().enumerate() {
@@ -427,8 +457,14 @@ mod imp {
             event_queue
                 .roundtrip(&mut state)
                 .context("Failed to receive output names")?;
+            if debug {
+                eprintln!("Freeze: received output names");
+            }
         }
 
+        if debug {
+            eprintln!("Freeze: checking required globals");
+        }
         let compositor = state
             .compositor
             .as_ref()
@@ -447,13 +483,14 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
                 return Ok(());
             }
         };
+        if debug {
+            eprintln!("Freeze: required globals are available");
+        }
 
-        // Sync with the next compositor frame before capturing outputs to avoid
-        // stale selection UI from a previous run.
-        if let Err(err) = sync_next_frame(&mut event_queue, &qh, &compositor, &mut state)
-            && debug
-        {
-            eprintln!("Freeze frame sync failed: {}", err);
+        // Some compositors may not report frame callbacks for a temporary surface
+        // in this context. Skip pre-sync to avoid blocking freeze startup.
+        if debug {
+            eprintln!("Freeze: pre-sync skipped");
         }
 
         let mut grim = match Grim::new() {
@@ -478,6 +515,9 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             return Ok(());
         }
 
+        if debug {
+            eprintln!("Freeze: querying outputs via grim-rs");
+        }
         let grim_outputs = grim
             .get_outputs()
             .context("Failed to list outputs via grim-rs")?;
@@ -500,6 +540,9 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
                 "No matching outputs found for freeze overlay"
             )));
             return Ok(());
+        }
+        if debug {
+            eprintln!("Freeze: output mapping prepared");
         }
 
         for (idx, meta_index) in mapping.into_iter().enumerate() {
@@ -591,6 +634,9 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             return Ok(());
         }
 
+        if debug {
+            eprintln!("Freeze: waiting for layer-surface configure");
+        }
         event_queue
             .roundtrip(&mut state)
             .context("Failed to configure freeze surfaces")?;
@@ -600,6 +646,9 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
             entry.surface.commit();
         }
         conn.flush().ok();
+        if debug {
+            eprintln!("Freeze: overlay committed");
+        }
 
         let _ = ready_tx.send(Ok(()));
 
@@ -624,44 +673,6 @@ Check the support for this protocol on Hyprland/Sway/River/Wayfire."
         Ok(())
     }
 
-    struct FrameSync;
-
-    impl Dispatch<wl_callback::WlCallback, FrameSync> for State {
-        fn event(
-            state: &mut Self,
-            callback: &wl_callback::WlCallback,
-            event: wl_callback::Event,
-            _: &FrameSync,
-            _: &Connection,
-            _: &QueueHandle<Self>,
-        ) {
-            if let wl_callback::Event::Done { .. } = event {
-                state.frame_done = true;
-                let _ = callback;
-            }
-        }
-    }
-
-    fn sync_next_frame(
-        event_queue: &mut EventQueue<State>,
-        qh: &QueueHandle<State>,
-        compositor: &WlCompositor,
-        state: &mut State,
-    ) -> Result<()> {
-        let surface = compositor.create_surface(qh, ());
-        state.frame_done = false;
-        surface.frame(qh, FrameSync);
-        surface.commit();
-
-        while !state.frame_done {
-            event_queue
-                .roundtrip(state)
-                .context("Failed to sync frame")?;
-        }
-
-        surface.destroy();
-        Ok(())
-    }
     fn create_buffer(
         shm: &WlShm,
         qh: &QueueHandle<State>,
