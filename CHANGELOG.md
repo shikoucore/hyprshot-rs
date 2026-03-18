@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Freeze startup**: Replaced short startup wait with explicit init handshake and clear timeout/disconnect errors.
 - **Freeze activation**: Removed pre-sync frame wait that could block overlay activation on some compositors.
-- **Freeze diagnostics**: Added stage-by-stage debug logs for startup and lifecycle visibility.
 
 ## [0.1.8] 2026-03-04
 
