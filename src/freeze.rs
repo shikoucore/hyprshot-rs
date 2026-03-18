@@ -118,7 +118,9 @@ mod imp {
                         Err(_) => return Err(anyhow::anyhow!("Freeze thread panicked")),
                     }
                 }
-                Err(anyhow::anyhow!("Freeze initialization channel disconnected"))
+                Err(anyhow::anyhow!(
+                    "Freeze initialization channel disconnected"
+                ))
             }
         }
     }

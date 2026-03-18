@@ -5,6 +5,13 @@ All notable changes to hyprshot-rs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] 2026-03-18
+
+### Fixed
+- **Freeze startup**: Replaced short startup wait with explicit init handshake and clear timeout/disconnect errors.
+- **Freeze activation**: Removed pre-sync frame wait that could block overlay activation on some compositors.
+- **Freeze diagnostics**: Added stage-by-stage debug logs for startup and lifecycle visibility.
+
 ## [0.1.8] 2026-03-04
 
 ### Changed
